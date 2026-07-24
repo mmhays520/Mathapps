@@ -533,15 +533,43 @@
             updateGraph();
         }
 
-        function resetApp() {
+    function resetApp() {
+            // 1. Reset all internal state variables so math doesn't carry over
             state.step = 0;
+            state.group = 'sin_cos'; 
+            state.period = new Expr(2, 1, 0, 1);
+            state.amp = 1;
+            state.reflH = false;
+            state.reflV = false;
+            state.vShift = 0;
+            state.hShift = new Expr(0, 1, 0, 1);
             state.baseFunc = 'sin';
             state.isReciprocal = false;
             state.morphProgress = 0;
             state.tanCotMorph = 0;
-            state.keyXFracs = [];
             state.view = { minX: -1, maxX: 7, minY: -3, maxY: 3 };
+            state.keyXFracs = [];
+
+            // 2. Reset all UI input fields and checkboxes to their default values
+            document.getElementById('periodNum').value = '2';
+            document.getElementById('periodPi').checked = true;
+            document.getElementById('periodDen').value = '1';
             
+            document.getElementById('ampInput').value = '1';
+            
+            document.getElementById('reflHoriz').checked = false;
+            document.getElementById('reflVert').checked = false;
+            
+            document.getElementById('vShiftInput').value = '0';
+            
+            document.getElementById('hShiftNum').value = '0';
+            document.getElementById('hShiftPi').checked = false;
+            document.getElementById('hShiftDen').value = '1';
+            if (document.querySelector('input[name="hShiftDir"][value="right"]')) {
+                document.querySelector('input[name="hShiftDir"][value="right"]').checked = true;
+            }
+            
+            // 3. Reset the visual step containers
             document.getElementById('step-0').classList.remove('completed');
             document.getElementById('step-0').classList.add('active');
             setStepDisabled(0, false);
@@ -611,13 +639,13 @@
             requestAnimationFrame(animate);
         }
 
-        /* --- Math to Coordinates Logic --- */
+         /* --- Math to Coordinates Logic --- */
 
         function calculateKeyPoints() {
             state.keyXFracs = [];
             
             if (state.group === 'sin_cos') {
-                let stepFrac = state.period.mul(1/4); // P / 4
+                let stepFrac = state.period.mul(1, 4); // Fix: Use integer fractions (1, 4) instead of float
                 for (let i = 0; i <= 4; i++) {
                     let rawFrac = stepFrac.mul(i);
                     if (state.reflH) rawFrac = rawFrac.mul(-1);
@@ -625,7 +653,7 @@
                 }
             } else {
                 // Tangent & Cotangent key points: -P, -P/2, 0, P/2, P
-                let stepFrac = state.period.mul(1/2); 
+                let stepFrac = state.period.mul(1, 2); // Fix: Use integer fractions (1, 2)
                 for (let i = -2; i <= 2; i++) {
                     let rawFrac = stepFrac.mul(i);
                     if (state.reflH) rawFrac = rawFrac.mul(-1);
@@ -655,29 +683,38 @@
         function updateViewBox() {
             if (state.step >= 1) {
                 calculateKeyPoints();
-                let xVals = state.keyXFracs.map(f => f.val());
-                let minX = Math.min(...xVals, 0); 
-                let maxX = Math.max(...xVals, 0);
+                let pVal = state.period.val() || 2 * Math.PI;
+                let hVal = state.hShift.val();
                 
-                let xPad = (maxX - minX) * 0.1 || 1;
-                state.view.minX = minX - xPad;
-                state.view.maxX = maxX + xPad;
+                // Fix: Anchor the camera symmetrically around the horizontal shift.
+                // This completely prevents jarring "zoom" or camera pans when toggling reflections!
+                if (state.group === 'sin_cos') {
+                    state.view.minX = hVal - pVal * 1.2;
+                    state.view.maxX = hVal + pVal * 1.2;
+                } else {
+                    state.view.minX = hVal - pVal * 1.5;
+                    state.view.maxX = hVal + pVal * 1.5;
+                }
             } else {
                 state.view.minX = -1; state.view.maxX = 5;
             }
 
             if (state.step >= 2) {
-                let yPad = state.amp * 1.5 || 2;
+                // Fix: Use Math.abs() so entering a negative amplitude doesn't break the Y bounds
+                let yPad = Math.abs(state.amp) * 1.5 || 2;
                 // For tanget/cotangent, default framing
                 if (state.group === 'tan_cot') yPad = 4;
                 
                 let centerY = state.vShift;
-                state.view.minY = centerY - yPad;
-                state.view.maxY = centerY + yPad;
+                
+                // Fix: Ensure the literal x-axis (y=0) remains in view so ticks don't disappear on vertical shifts
+                state.view.minY = Math.min(centerY - yPad, -1);
+                state.view.maxY = Math.max(centerY + yPad, 1);
             } else {
                 state.view.minY = -3; state.view.maxY = 3;
             }
         }
+
 
         /* --- SVG Rendering --- */
 
