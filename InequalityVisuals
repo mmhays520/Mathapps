@@ -1,0 +1,1169 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interactive Math Solver</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&family=Fredoka+One&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f0fdfa; 
+            margin: 0;
+            overflow-x: hidden;
+            touch-action: none; 
+        }
+        
+        .math-font {
+            font-family: 'Fredoka One', cursive;
+        }
+
+        .weight-item {
+            cursor: grab;
+            transition: transform 0.2s, background-color 0.3s, opacity 0.3s;
+            user-select: none;
+            touch-action: none;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+        }
+        
+        .weight-item:active {
+            cursor: grabbing;
+            transform: scale(1.05);
+        }
+
+        .plate-dropzone {
+            transition: background-color 0.2s, transform 0.2s, border-color 0.2s;
+        }
+        
+        .plate-dropzone.drag-over {
+            background-color: #fde047; 
+            transform: scale(1.02);
+            border-color: #ca8a04;
+        }
+
+        .bg-pattern {
+            background-image: radial-gradient(#cbd5e1 2px, transparent 2px);
+            background-size: 30px 30px;
+        }
+
+        /* Animations for solving */
+        @keyframes pop {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.2); }
+            100% { transform: scale(1); }
+        }
+        .animate-pop {
+            animation: pop 0.4s ease-out;
+        }
+
+        @keyframes fadeOutRow {
+            0% { opacity: 1; transform: translateY(0); }
+            100% { opacity: 0; transform: translateY(20px); }
+        }
+        .fade-out-row {
+            animation: fadeOutRow 1s forwards;
+        }
+        
+        .math-history-item {
+            border-left: 4px solid #14b8a6;
+            margin-bottom: 1rem;
+            padding-left: 1rem;
+            opacity: 0;
+            animation: slideIn 0.3s forwards;
+        }
+
+        @keyframes slideIn {
+            from { opacity: 0; transform: translateX(-10px); }
+            to { opacity: 1; transform: translateX(0); }
+        }
+
+        @keyframes floatBalloon {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-8px); }
+        }
+        .balloon-float {
+            animation: floatBalloon 3s ease-in-out infinite;
+        }
+    </style>
+</head>
+<body class="bg-pattern min-h-screen flex flex-col py-4 px-2 md:px-4">
+
+    <!-- Screen Reader Live Region -->
+    <div id="sr-announcer" class="sr-only" aria-live="polite">Welcome to the Interactive Math Solver.</div>
+
+    <!-- Mode Switcher Tabs -->
+    <div class="max-w-6xl w-full mx-auto mb-4 flex justify-center gap-4">
+        <button id="modeCompareBtn" class="px-6 py-3 rounded-t-xl font-bold text-lg bg-teal-700 text-white shadow-md focus:ring-4 focus:ring-teal-300 transition-colors" aria-pressed="true">
+            ⚖️ Compare Mode
+        </button>
+        <button id="modeEquationBtn" class="px-6 py-3 rounded-t-xl font-bold text-lg bg-gray-200 text-gray-700 hover:bg-gray-300 shadow-md focus:ring-4 focus:ring-indigo-300 transition-colors" aria-pressed="false">
+            🧮 Equation Mode
+        </button>
+    </div>
+
+    <!-- MAIN CONTAINER -->
+    <div class="max-w-6xl w-full mx-auto flex flex-col lg:flex-row gap-6 items-start">
+        
+        <!-- LEFT COLUMN: The Interactive Board -->
+        <div class="flex-grow w-full flex flex-col items-center">
+            
+            <!-- Controls Header -->
+            <div id="controlsHeader" class="w-full bg-white rounded-3xl shadow-xl border-4 border-teal-700 overflow-hidden mb-6 transition-all duration-500">
+                
+                <!-- Title Area -->
+                <div id="headerTitleArea" class="bg-teal-700 text-white p-4 text-center relative">
+                    <h1 id="appTitle" class="text-2xl md:text-3xl font-bold math-font tracking-wide">Compare The Values!</h1>
+                    <p id="appSubtitle" class="text-teal-50 mt-1 text-base">Create blocks and drag them into the zones.</p>
+                </div>
+                
+                <!-- Inputs Area -->
+                <div id="inputsArea" class="p-4 md:p-6 flex flex-wrap gap-4 justify-center items-center bg-teal-50">
+                    <!-- Dynamic inputs injected here via JS based on mode -->
+                </div>
+            </div>
+
+            <!-- The Board -->
+            <div class="w-full flex flex-col items-center relative">
+                
+                <!-- The Math Sentence Display -->
+                <div class="h-16 flex items-center justify-center mb-2">
+                    <div id="mathSentence" class="text-4xl md:text-5xl font-bold math-font text-gray-800 transition-opacity duration-300" aria-live="polite">
+                        <!-- Dynamic Math Text -->
+                    </div>
+                </div>
+
+                <!-- Comparison Area -->
+                <div class="relative w-full flex flex-col md:flex-row justify-center items-stretch gap-4 md:gap-6 min-h-[400px]">
+                    
+                    <!-- Left Area -->
+                    <div class="flex flex-col items-center w-full md:w-2/5">
+                        <div id="leftPlate" data-side="left" role="region" aria-label="Left Side" class="w-full h-full min-h-[400px] border-4 border-dashed border-blue-400 rounded-3xl plate-dropzone relative z-20 bg-white shadow-sm overflow-hidden flex flex-col p-4">
+                            <!-- Background elements (Sky/Water) shown only in compare mode -->
+                            <div class="compare-bg absolute inset-0 hidden flex-col z-0 pointer-events-none">
+                                <div class="w-full h-1/2 bg-sky-200 border-b-[8px] border-amber-800 relative shadow-[inset_0_-10px_20px_rgba(0,0,0,0.1)]"></div>
+                                <div class="w-full h-1/2 bg-blue-400 relative shadow-[inset_0_10px_20px_rgba(0,0,0,0.1)]"></div>
+                            </div>
+                            
+                            <!-- Compare Layout -->
+                            <div class="compare-layout hidden flex-col w-full h-full relative z-20">
+                                <div id="leftSky" class="w-full h-1/2 flex flex-wrap items-end justify-center gap-2 pb-2"></div>
+                                <div id="leftWater" class="w-full h-1/2 flex flex-wrap items-start justify-center gap-2 pt-2"></div>
+                            </div>
+
+                            <div id="leftInnerLayout" class="flex flex-wrap gap-2 w-full h-full content-start justify-center relative z-20"></div>
+                            <span class="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 text-blue-900 font-bold text-2xl pointer-events-none opacity-30 z-10 text-center w-full mix-blend-overlay">Left Side</span>
+                        </div>
+                    </div>
+
+                    <!-- Giant Mechanical Sign -->
+                    <div class="w-32 h-64 md:w-48 flex flex-col items-center justify-center relative z-30 shrink-0">
+                        <!-- Select indicator in setup mode -->
+                        <div id="symbolClickHint" class="absolute -top-8 text-sm font-bold text-indigo-600 bg-indigo-100 px-3 py-1 rounded-full animate-bounce hidden">Click to Change</div>
+                        
+                        <button id="mechanicalSignBtn" class="relative w-[140px] h-[140px] flex items-center justify-center bg-gray-50 rounded-[2.5rem] shadow-[inset_0_4px_12px_rgba(0,0,0,0.1),_0_8px_20px_rgba(0,0,0,0.15)] border-8 border-gray-200 focus:outline-none focus:ring-4 focus:ring-indigo-400 cursor-default" aria-label="Current symbol is equals">
+                            <!-- Top Bar -->
+                            <div id="topBar" class="absolute top-1/2 left-1/2 -ml-[50px] -mt-[20px] w-[100px] h-[16px] bg-green-500 rounded-full flex items-center justify-center shadow-md z-40 transition-all duration-500 ease-in-out transform origin-center">
+                                <div class="w-6 h-6 bg-gray-200 rounded-full border-2 border-gray-400 shadow-sm flex items-center justify-center">
+                                    <div class="w-3 h-0.5 bg-gray-500 rotate-45 absolute"></div>
+                                    <div class="w-3 h-0.5 bg-gray-500 -rotate-45 absolute"></div>
+                                </div>
+                            </div>
+                            <!-- Bottom Bar -->
+                            <div id="bottomBar" class="absolute top-1/2 left-1/2 -ml-[50px] mt-[4px] w-[100px] h-[16px] bg-green-500 rounded-full flex items-center justify-center shadow-md z-40 transition-all duration-500 ease-in-out transform origin-center">
+                                <div class="w-6 h-6 bg-gray-200 rounded-full border-2 border-gray-400 shadow-sm flex items-center justify-center">
+                                    <div class="w-3 h-0.5 bg-gray-500 rotate-45 absolute"></div>
+                                    <div class="w-3 h-0.5 bg-gray-500 -rotate-45 absolute"></div>
+                                </div>
+                            </div>
+                            <!-- Extra "Or Equal" Bar -->
+                            <div id="extraEqBar" class="absolute top-1/2 left-1/2 -ml-[45px] mt-[28px] w-[90px] h-[12px] bg-indigo-500 rounded-full shadow-md z-30 transition-all duration-500 ease-in-out opacity-0"></div>
+                        </button>
+                    </div>
+
+                    <!-- Right Area -->
+                    <div class="flex flex-col items-center w-full md:w-2/5">
+                        <div id="rightPlate" data-side="right" role="region" aria-label="Right Side" class="w-full h-full min-h-[400px] border-4 border-dashed border-orange-400 rounded-3xl plate-dropzone relative z-20 bg-white shadow-sm overflow-hidden flex flex-col p-4">
+                            <!-- Background elements (Sky/Water) shown only in compare mode -->
+                            <div class="compare-bg absolute inset-0 hidden flex-col z-0 pointer-events-none">
+                                <div class="w-full h-1/2 bg-sky-200 border-b-[8px] border-amber-800 relative shadow-[inset_0_-10px_20px_rgba(0,0,0,0.1)]"></div>
+                                <div class="w-full h-1/2 bg-blue-400 relative shadow-[inset_0_10px_20px_rgba(0,0,0,0.1)]"></div>
+                            </div>
+                            
+                            <!-- Compare Layout -->
+                            <div class="compare-layout hidden flex-col w-full h-full relative z-20">
+                                <div id="rightSky" class="w-full h-1/2 flex flex-wrap items-end justify-center gap-2 pb-2"></div>
+                                <div id="rightWater" class="w-full h-1/2 flex flex-wrap items-start justify-center gap-2 pt-2"></div>
+                            </div>
+
+                            <div id="rightInnerLayout" class="flex flex-wrap gap-2 w-full h-full content-start justify-center relative z-20"></div>
+                            <span class="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 text-orange-900 font-bold text-2xl pointer-events-none opacity-30 z-10 text-center w-full mix-blend-overlay">Right Side</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Weight Dock (Compare Mode Only) -->
+                <div id="dockContainer" class="w-full mt-8 mb-4">
+                    <h3 class="text-center font-bold text-gray-700 uppercase tracking-widest mb-2">Weight Dock</h3>
+                    <div id="weightDock" data-side="dock" role="region" aria-label="Weight Dock" class="w-full min-h-[150px] bg-white border-4 border-dashed border-gray-400 rounded-3xl p-4 flex flex-wrap justify-center items-center gap-4 relative z-50">
+                        <!-- Dock Weights -->
+                    </div>
+                </div>
+                
+                <!-- Solve Mode Tools (Equation Mode Only) -->
+                <div id="solveToolsContainer" class="w-full mt-8 mb-4 hidden bg-white rounded-2xl shadow-lg border-2 border-indigo-200 p-4 flex flex-col items-center gap-4">
+                    <h3 class="font-bold text-indigo-800 text-xl text-center">Solve Actions</h3>
+                    <p class="text-gray-600 text-sm text-center">Drag blocks across the sign to apply inverse operations.</p>
+                    <div class="flex flex-wrap gap-4 justify-center">
+                        <button id="btnFlipSigns" class="bg-slate-700 hover:bg-slate-800 text-white font-bold py-3 px-6 rounded-xl shadow focus:ring-4 focus:ring-slate-300 disabled:opacity-50 disabled:cursor-not-allowed transition-all">
+                            ✖️ Multiply by -1 (Flip Signs)
+                        </button>
+                        <button id="btnDivide" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-6 rounded-xl shadow focus:ring-4 focus:ring-indigo-300 disabled:opacity-50 disabled:cursor-not-allowed transition-all hidden">
+                            ➗ Divide & Isolate X
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- RIGHT COLUMN: Algebraic History (Equation Mode Only) -->
+        <div id="historyPanel" class="w-full lg:w-80 bg-white rounded-3xl shadow-xl border-4 border-indigo-700 hidden flex-col max-h-[80vh] sticky top-4">
+            <div class="bg-indigo-700 text-white p-4 text-center rounded-t-xl shrink-0">
+                <h2 class="text-xl font-bold">Algebra Steps</h2>
+            </div>
+            <div id="historyContent" class="p-4 overflow-y-auto flex-grow flex flex-col text-sm text-gray-800 bg-indigo-50">
+                <p class="text-gray-500 italic text-center mt-4">Setup your equation, then click 'Start Solving' to track steps.</p>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        /* --- STATE & CONFIGURATION --- */
+        let currentMode = 'compare'; // 'compare', 'equation_setup', 'equation_solve'
+        let currentSymbol = '='; // '=', '<', '>'
+        let blockCounter = 0;
+        let compareSign = 1; // 1 for positive, -1 for negative in compare mode
+        
+        // Data model for the board. 
+        // Items look like: { id: 'block-1', type: 'const', val: 5, el: HTMLElement }
+        // Or: { id: 'block-2', type: 'x', val: -1, el: HTMLElement }
+        let boardState = {
+            left: [],
+            right: [],
+            dock: [] // Used only in compare mode
+        };
+
+        const config = {
+            colors: {
+                constPos: { bg: 'bg-blue-600', border: 'border-blue-800', text: 'text-white' },
+                constNeg: { bg: 'bg-rose-600', border: 'border-rose-800', text: 'text-white' },
+                xPos: { bg: 'bg-emerald-500', border: 'border-emerald-700', text: 'text-white' },
+                xNeg: { bg: 'bg-purple-600', border: 'border-purple-800', text: 'text-white' },
+                neutral: { bg: 'bg-amber-400', border: 'border-amber-600', text: 'text-gray-900' } // For compare mode
+            }
+        };
+
+        // DOM Elements
+        const modeCompareBtn = document.getElementById('modeCompareBtn');
+        const modeEquationBtn = document.getElementById('modeEquationBtn');
+        const controlsHeader = document.getElementById('controlsHeader');
+        const headerTitleArea = document.getElementById('headerTitleArea');
+        const appTitle = document.getElementById('appTitle');
+        const appSubtitle = document.getElementById('appSubtitle');
+        const inputsArea = document.getElementById('inputsArea');
+        
+        const mathSentence = document.getElementById('mathSentence');
+        const leftInnerLayout = document.getElementById('leftInnerLayout');
+        const rightInnerLayout = document.getElementById('rightInnerLayout');
+        const dockContainer = document.getElementById('dockContainer');
+        const weightDock = document.getElementById('weightDock');
+        
+        const mechanicalSignBtn = document.getElementById('mechanicalSignBtn');
+        const symbolClickHint = document.getElementById('symbolClickHint');
+        const topBar = document.getElementById('topBar');
+        const bottomBar = document.getElementById('bottomBar');
+        
+        const solveToolsContainer = document.getElementById('solveToolsContainer');
+        const historyPanel = document.getElementById('historyPanel');
+        const historyContent = document.getElementById('historyContent');
+        const btnFlipSigns = document.getElementById('btnFlipSigns');
+        const btnDivide = document.getElementById('btnDivide');
+        
+        /* --- STREAMING_CHUNK: Setup UI Switchers --- */
+        
+        // Mode Switching Event Listeners
+        modeCompareBtn.addEventListener('click', () => switchMode('compare'));
+        modeEquationBtn.addEventListener('click', () => switchMode('equation_setup'));
+        mechanicalSignBtn.addEventListener('click', handleSymbolClick);
+        btnFlipSigns.addEventListener('click', handleFlipSigns);
+        btnDivide.addEventListener('click', handleDivide);
+
+        function switchMode(newMode) {
+            // Only clear the board if switching between completely different activities
+            if ((currentMode === 'compare' && newMode.startsWith('equation')) || 
+                (currentMode.startsWith('equation') && newMode === 'compare')) {
+                clearBoard();
+            }
+            
+            currentMode = newMode;
+            
+            const compareBgs = document.querySelectorAll('.compare-bg');
+            const compareLayouts = document.querySelectorAll('.compare-layout');
+            const innerLayouts = [document.getElementById('leftInnerLayout'), document.getElementById('rightInnerLayout')];
+
+            if (newMode === 'compare') {
+                // UI updates for Compare
+                modeCompareBtn.classList.replace('bg-gray-200', 'bg-teal-700');
+                modeCompareBtn.classList.replace('text-gray-700', 'text-white');
+                modeCompareBtn.setAttribute('aria-pressed', 'true');
+                
+                modeEquationBtn.classList.replace('bg-indigo-700', 'bg-gray-200');
+                modeEquationBtn.classList.replace('text-white', 'text-gray-700');
+                modeEquationBtn.setAttribute('aria-pressed', 'false');
+
+                controlsHeader.classList.replace('border-indigo-700', 'border-teal-700');
+                headerTitleArea.classList.replace('bg-indigo-700', 'bg-teal-700');
+                appTitle.innerText = "Compare Numbers!";
+                appSubtitle.innerText = "Add blocks to the dock and drag them to scales.";
+                inputsArea.classList.replace('bg-indigo-50', 'bg-teal-50');
+                
+                dockContainer.classList.remove('hidden');
+                historyPanel.classList.add('hidden');
+                solveToolsContainer.classList.add('hidden');
+                symbolClickHint.classList.add('hidden');
+                mechanicalSignBtn.classList.remove('cursor-pointer');
+                
+                compareBgs.forEach(el => { el.classList.remove('hidden'); el.classList.add('flex'); });
+                compareLayouts.forEach(el => { el.classList.remove('hidden'); el.classList.add('flex'); });
+                innerLayouts.forEach(el => { el.classList.remove('flex'); el.classList.add('hidden'); });
+
+                renderCompareInputs();
+                currentSymbol = '=';
+                updateMechanicalSign();
+
+            } else if (newMode === 'equation_setup') {
+                // UI updates for Equation Setup
+                modeEquationBtn.classList.replace('bg-gray-200', 'bg-indigo-700');
+                modeEquationBtn.classList.replace('text-gray-700', 'text-white');
+                modeEquationBtn.setAttribute('aria-pressed', 'true');
+                
+                modeCompareBtn.classList.replace('bg-teal-700', 'bg-gray-200');
+                modeCompareBtn.classList.replace('text-white', 'text-gray-700');
+                modeCompareBtn.setAttribute('aria-pressed', 'false');
+
+                controlsHeader.classList.replace('border-teal-700', 'border-indigo-700');
+                headerTitleArea.classList.replace('bg-teal-700', 'bg-indigo-700');
+                appTitle.innerText = "Set Up Equation";
+                appSubtitle.innerText = "Add X's and constants directly to the plates. Click sign to change.";
+                inputsArea.classList.replace('bg-teal-50', 'bg-indigo-50');
+                
+                dockContainer.classList.add('hidden');
+                historyPanel.classList.remove('hidden');
+                historyPanel.classList.add('flex');
+                solveToolsContainer.classList.add('hidden');
+                symbolClickHint.classList.remove('hidden');
+                mechanicalSignBtn.classList.add('cursor-pointer');
+                
+                compareBgs.forEach(el => { el.classList.add('hidden'); el.classList.remove('flex'); });
+                compareLayouts.forEach(el => { el.classList.add('hidden'); el.classList.remove('flex'); });
+                innerLayouts.forEach(el => { el.classList.remove('hidden'); el.classList.add('flex'); });
+                
+                historyContent.innerHTML = `<p class="text-gray-500 italic text-center mt-4">Setup your equation above. Drag items directly into the left or right side.</p>`;
+                
+                renderEquationInputs();
+                currentSymbol = '=';
+                updateMechanicalSign();
+            } else if (newMode === 'equation_solve') {
+                appTitle.innerText = "Solve Equation!";
+                appSubtitle.innerText = "Drag terms across the sign to apply inverse operations.";
+                inputsArea.innerHTML = `
+                    <button onclick="switchMode('equation_setup')" class="bg-gray-500 hover:bg-gray-600 text-white font-bold py-2 px-6 rounded-xl shadow transition-colors">
+                        ← Back to Setup
+                    </button>
+                    <button onclick="clearBoard(); switchMode('equation_setup')" class="bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-6 rounded-xl shadow transition-colors">
+                        Reset Board
+                    </button>
+                `;
+                symbolClickHint.classList.add('hidden');
+                mechanicalSignBtn.classList.remove('cursor-pointer');
+                solveToolsContainer.classList.remove('hidden');
+                
+                historyContent.innerHTML = '';
+                logHistory("Began solving", true);
+                
+                // Combine terms initially just in case they added loose terms
+                combineTerms('left');
+                combineTerms('right');
+            }
+            updateMathSentence();
+        }
+
+        function renderCompareInputs() {
+            inputsArea.innerHTML = `
+                <div class="flex flex-col items-center">
+                    <label class="font-bold text-gray-900 mb-1 text-sm" for="numInput">Value (Click +/- to swap)</label>
+                    <div class="flex items-center gap-2">
+                        <button id="compareSignBtn" onclick="toggleCompareSign()" aria-label="Toggle positive or negative" class="w-12 h-12 text-2xl font-bold rounded-xl bg-blue-100 text-blue-700 border-2 border-blue-300 shadow transition-colors z-10">+</button>
+                        <input type="number" id="numInput" min="0" max="999" value="5" class="w-24 text-center text-xl font-bold p-2 border-4 border-teal-600 rounded-xl focus:outline-none focus:border-teal-800 text-gray-900">
+                    </div>
+                </div>
+                <div class="flex flex-col md:flex-row gap-2">
+                    <button onclick="addCompareBlock()" class="bg-gradient-to-r from-teal-600 to-teal-800 hover:from-teal-700 hover:to-teal-900 text-white font-bold py-3 px-6 rounded-xl shadow-lg transform transition hover:-translate-y-1 active:translate-y-0">
+                        Add Block
+                    </button>
+                    <button onclick="combineCompare()" class="bg-gradient-to-r from-indigo-500 to-indigo-700 hover:from-indigo-600 hover:to-indigo-800 text-white font-bold py-3 px-6 rounded-xl shadow-lg transform transition hover:-translate-y-1 active:translate-y-0">
+                        Combine Sides
+                    </button>
+                </div>
+                <button onclick="clearBoard()" class="ml-2 text-red-600 hover:text-red-800 font-bold px-4 py-2">Clear All</button>
+            `;
+            compareSign = 1; // Reset to positive on render
+        }
+
+        function combineCompare() {
+            if (currentMode !== 'compare') return;
+            let combinedAnything = false;
+            
+            ['left', 'right'].forEach(side => {
+                // Find how many items are currently in this plate
+                if (boardState[side].length <= 1) return; 
+                combinedAnything = true;
+                
+                const totalVal = boardState[side].reduce((sum, b) => sum + b.val, 0);
+                
+                // Clear out DOM
+                boardState[side].forEach(b => {
+                    if(b.el.parentNode) b.el.parentNode.removeChild(b.el);
+                });
+                boardState[side] = []; // Clear array
+
+                // Add the single consolidated balloon back
+                if (totalVal !== 0) {
+                    createBlockDOM(totalVal, 'const', null, side);
+                }
+            });
+            
+            if (combinedAnything) {
+                updateMathSentence();
+                announce("Combined balloons on the plates.");
+            }
+        }
+
+        function toggleCompareSign() {
+            compareSign *= -1;
+            const btn = document.getElementById('compareSignBtn');
+            if (compareSign > 0) {
+                btn.innerText = '+';
+                btn.className = "w-12 h-12 text-2xl font-bold rounded-xl bg-blue-100 text-blue-700 border-2 border-blue-300 shadow transition-colors z-10";
+            } else {
+                btn.innerText = '-';
+                btn.className = "w-12 h-12 text-2xl font-bold rounded-xl bg-rose-100 text-rose-700 border-2 border-rose-300 shadow transition-colors z-10";
+            }
+        }
+
+        function renderEquationInputs() {
+            inputsArea.innerHTML = `
+                <div class="flex flex-col md:flex-row w-full justify-between items-center gap-4 max-w-4xl mx-auto">
+                    
+                    <!-- Left Side Adders -->
+                    <div class="flex flex-col items-center bg-blue-50 p-3 rounded-xl border-2 border-blue-200 w-full md:w-2/5">
+                        <span class="font-bold text-blue-800 text-sm uppercase mb-2">Add to Left Plate</span>
+                        <div class="flex flex-wrap gap-2 justify-center">
+                            <button onclick="addEquationBlock('x', 1, 'left')" class="bg-emerald-500 hover:bg-emerald-600 text-white font-bold py-2 px-3 rounded-lg shadow transition">+X</button>
+                            <button onclick="addEquationBlock('x', -1, 'left')" class="bg-purple-600 hover:bg-purple-700 text-white font-bold py-2 px-3 rounded-lg shadow transition">-X</button>
+                            <div class="flex items-center gap-1 bg-white p-1 rounded-lg border border-blue-200">
+                                <input type="number" id="leftConstInput" aria-label="Constant to add to left plate" value="1" class="w-16 text-center text-lg font-bold p-1 border-none focus:outline-none">
+                                <button onclick="addEquationBlock('const', null, 'left')" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-1 px-3 rounded shadow transition">Num</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Center -->
+                    <div class="flex flex-col items-center justify-center shrink-0 border-y-2 md:border-y-0 md:border-x-2 border-indigo-100 py-4 md:py-0 md:px-4 w-full md:w-auto">
+                        <button onclick="startSolving()" class="bg-indigo-700 hover:bg-indigo-800 text-white text-xl font-bold py-3 px-8 rounded-xl shadow-lg transform transition hover:-translate-y-1 focus:ring-4 focus:ring-indigo-300 w-full md:w-auto">
+                            ✅ Start Solving
+                        </button>
+                        <span class="text-xs text-indigo-500 font-bold mt-2 text-center">Will auto-combine terms</span>
+                    </div>
+
+                    <!-- Right Side Adders -->
+                    <div class="flex flex-col items-center bg-orange-50 p-3 rounded-xl border-2 border-orange-200 w-full md:w-2/5">
+                        <span class="font-bold text-orange-800 text-sm uppercase mb-2">Add to Right Plate</span>
+                        <div class="flex flex-wrap gap-2 justify-center">
+                            <button onclick="addEquationBlock('x', 1, 'right')" class="bg-emerald-500 hover:bg-emerald-600 text-white font-bold py-2 px-3 rounded-lg shadow transition">+X</button>
+                            <button onclick="addEquationBlock('x', -1, 'right')" class="bg-purple-600 hover:bg-purple-700 text-white font-bold py-2 px-3 rounded-lg shadow transition">-X</button>
+                            <div class="flex items-center gap-1 bg-white p-1 rounded-lg border border-orange-200">
+                                <input type="number" id="rightConstInput" aria-label="Constant to add to right plate" value="1" class="w-16 text-center text-lg font-bold p-1 border-none focus:outline-none">
+                                <button onclick="addEquationBlock('const', null, 'right')" class="bg-orange-600 hover:bg-orange-700 text-white font-bold py-1 px-3 rounded shadow transition">Num</button>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+            `;
+        }
+
+        /* --- STREAMING_CHUNK: Block Creation and Rendering --- */
+
+        function addCompareBlock() {
+            const input = document.getElementById('numInput');
+            let val = parseInt(input.value);
+            if (isNaN(val) || val < 0) return;
+            
+            val = val * compareSign; // Apply the positive or negative toggle
+            
+            // Theme is assigned dynamically inside createBlockDOM for compare mode
+            createBlockDOM(val, 'const', null, 'dock');
+        }
+
+        function addEquationBlock(type, forcedValue, targetSide = 'left') {
+            let val;
+            let theme;
+            
+            if (type === 'x') {
+                val = forcedValue;
+                theme = val > 0 ? config.colors.xPos : config.colors.xNeg;
+            } else {
+                const inputId = targetSide === 'left' ? 'leftConstInput' : 'rightConstInput';
+                const input = document.getElementById(inputId);
+                val = parseInt(input.value);
+                if (isNaN(val) || val === 0) return; // Prevent 0 block
+                theme = val > 0 ? config.colors.constPos : config.colors.constNeg;
+            }
+
+            // Drop directly into the specified side
+            createBlockDOM(val, type, theme, targetSide);
+            
+            // Note: We no longer auto-combine here during setup mode so 
+            // the user can build "3x" as three separate blocks. 
+            // They combine dynamically on "Start Solving".
+            
+            updateMathSentence();
+        }
+
+        function createBlockDOM(val, type, theme, targetSide, isFractionStr = null) {
+            blockCounter++;
+            const id = `block-${blockCounter}`;
+            
+            const el = document.createElement('div');
+            el.id = id;
+            
+            // Visual sizing
+            let absVal = isFractionStr ? 40 : Math.abs(val);
+            let size = type === 'x' ? 80 : Math.min(100, Math.max(50, 40 + (absVal * 2)));
+            
+            // Label and Theme logic
+            let label = val;
+            let shapeClasses = `rounded-2xl border-b-8`;
+            let extraStyles = "";
+            let innerContent = "";
+
+            if (currentMode === 'compare') {
+                let absVal = Math.abs(val);
+                // Size scale: Larger values get visually larger balloons
+                size = Math.min(130, Math.max(50, 42 + (absVal * 7)));
+                
+                if (val >= 0) {
+                    // Sky Balloon Metaphor
+                    theme = { bg: 'bg-rose-500', border: 'border-rose-700', text: 'text-white' };
+                    let stringColor = 'text-rose-600';
+                    shapeClasses = `rounded-full border-b-2 balloon-float`;
+                    extraStyles = `box-shadow: inset -4px -4px 10px rgba(0,0,0,0.2);`;
+                    label = val;
+                    // Add SVG string for the balloon pointing down
+                    innerContent = `
+                        <span class="z-20 drop-shadow-md text-2xl font-black">${label}</span>
+                        <svg class="absolute -bottom-8 ${stringColor} z-10" width="20" height="40" viewBox="0 0 20 40">
+                            <path d="M10,0 Q15,10 10,20 T10,40" fill="none" stroke="currentColor" stroke-width="3"/>
+                        </svg>`;
+                } else {
+                    // Water Balloon Metaphor (Reflected / Upside Down)
+                    theme = { bg: 'bg-indigo-500', border: 'border-indigo-700', text: 'text-white' };
+                    let stringColor = 'text-indigo-600';
+                    shapeClasses = `rounded-full border-t-2 balloon-float`;
+                    extraStyles = `box-shadow: inset -4px 4px 10px rgba(0,0,0,0.2);`;
+                    label = val;
+                    // Add SVG string for the balloon pointing up (rotated 180 degrees)
+                    innerContent = `
+                        <svg class="absolute -top-8 ${stringColor} z-10 transform rotate-180" width="20" height="40" viewBox="0 0 20 40">
+                            <path d="M10,0 Q15,10 10,20 T10,40" fill="none" stroke="currentColor" stroke-width="3"/>
+                        </svg>
+                        <span class="z-20 drop-shadow-md text-2xl font-black">${label}</span>`;
+                }
+            } else {
+                // Equation Mode styling
+                if (type === 'x') {
+                    label = val === 1 ? 'x' : (val === -1 ? '-x' : `${val}x`);
+                } else if (isFractionStr) {
+                    label = isFractionStr;
+                } else if (val > 0) {
+                    label = `+${val}`;
+                }
+                innerContent = `<span class="z-20">${label}</span>`;
+            }
+
+            el.className = `weight-item relative flex items-center justify-center ${shapeClasses} ${theme.text} font-bold math-font ${theme.bg} ${theme.border} z-50 shrink-0 focus:outline-none focus:ring-4 focus:ring-black`;
+            el.style.width = `${size}px`;
+            el.style.height = `${size}px`;
+            el.style.fontSize = `${Math.max(18, size/3.5)}px`;
+            if (extraStyles) el.style.cssText += extraStyles;
+            
+            el.innerHTML = innerContent;
+            
+            el.setAttribute('tabindex', '0');
+            el.setAttribute('role', 'button');
+            el.setAttribute('aria-label', `${type === 'x' ? 'Variable' : 'Number'} ${label}. Use arrow keys to move.`);
+
+            // Add to State
+            const blockData = { id, type, val, el, isFraction: isFractionStr };
+            boardState[targetSide].push(blockData);
+            
+            // Add to DOM in the correct location based on mode
+            snapToUI(blockData, targetSide);
+
+            setupDragAndDrop(blockData);
+            setupKeyboardAccessibility(blockData);
+            
+            announce(`Added ${label} to ${targetSide}`);
+            return blockData;
+        }
+
+        /* --- STREAMING_CHUNK: Drag and Drop & Interaction Logic --- */
+
+        let isDragging = false;
+        let currentDragData = null;
+        let startX, startY, initialLeft, initialTop;
+
+        function setupDragAndDrop(blockData) {
+            const element = blockData.el;
+            element.addEventListener('pointerdown', (e) => {
+                e.preventDefault();
+                isDragging = true;
+                currentDragData = blockData;
+                
+                const rect = element.getBoundingClientRect();
+                document.body.appendChild(element); // Move to body for free drag
+                
+                element.style.position = 'absolute';
+                element.style.left = `${rect.left + window.scrollX}px`;
+                element.style.top = `${rect.top + window.scrollY}px`;
+                element.style.margin = '0';
+                element.style.zIndex = 1000;
+                
+                startX = e.clientX;
+                startY = e.clientY;
+                initialLeft = parseFloat(element.style.left);
+                initialTop = parseFloat(element.style.top);
+            });
+        }
+
+        window.addEventListener('pointermove', (e) => {
+            if (!isDragging || !currentDragData) return;
+            e.preventDefault();
+            
+            const dx = e.clientX - startX;
+            const dy = e.clientY - startY;
+            
+            currentDragData.el.style.left = `${initialLeft + dx}px`;
+            currentDragData.el.style.top = `${initialTop + dy}px`;
+
+            checkHoverState(e.clientX, e.clientY);
+        });
+
+        window.addEventListener('pointerup', (e) => {
+            if (!isDragging || !currentDragData) return;
+            
+            const leftPlate = document.getElementById('leftPlate');
+            const rightPlate = document.getElementById('rightPlate');
+            
+            leftPlate.classList.remove('drag-over');
+            rightPlate.classList.remove('drag-over');
+
+            const droppedZone = getDropZone(e.clientX, e.clientY);
+            handleDrop(currentDragData, droppedZone);
+
+            isDragging = false;
+            currentDragData = null;
+        });
+
+        function checkHoverState(clientX, clientY) {
+            const leftPlate = document.getElementById('leftPlate');
+            const rightPlate = document.getElementById('rightPlate');
+            leftPlate.classList.remove('drag-over');
+            rightPlate.classList.remove('drag-over');
+            
+            if (isOverElement(clientX, clientY, leftPlate)) leftPlate.classList.add('drag-over');
+            else if (isOverElement(clientX, clientY, rightPlate)) rightPlate.classList.add('drag-over');
+        }
+
+        function getDropZone(x, y) {
+            if (isOverElement(x, y, document.getElementById('leftPlate'))) return 'left';
+            if (isOverElement(x, y, document.getElementById('rightPlate'))) return 'right';
+            if (currentMode === 'compare' && isOverElement(x, y, document.getElementById('weightDock'))) return 'dock';
+            return null; // Invalid drop
+        }
+
+        function isOverElement(x, y, element) {
+            if (!element) return false;
+            const rect = element.getBoundingClientRect();
+            const pad = 20;
+            return (x >= rect.left - pad && x <= rect.right + pad && y >= rect.top - pad && y <= rect.bottom + pad);
+        }
+
+        /* --- STREAMING_CHUNK: Math Logic and State Handling --- */
+
+        function handleDrop(blockData, newSide) {
+            // Find current side
+            let oldSide = 'dock';
+            if (boardState.left.includes(blockData)) oldSide = 'left';
+            if (boardState.right.includes(blockData)) oldSide = 'right';
+
+            // If invalid drop, return to original
+            if (!newSide || (currentMode.startsWith('equation') && newSide === 'dock')) {
+                snapToUI(blockData, oldSide);
+                return;
+            }
+
+            if (oldSide !== newSide) {
+                // MOVE HAPPENED across sides
+                removeFromState(blockData, oldSide);
+                
+                if (currentMode === 'equation_solve') {
+                    // INVERSE OPERATION: Flip sign when crossing equals!
+                    blockData.val = blockData.val * -1;
+                    
+                    // Update visual theme
+                    updateBlockVisuals(blockData);
+                    
+                    // Log the step
+                    const actionWord = blockData.val > 0 ? "Add" : "Subtract";
+                    let label = blockData.type === 'x' ? `${Math.abs(blockData.val)}x` : Math.abs(blockData.val);
+                    logHistory(`${actionWord} ${label} on both sides.`);
+                }
+
+                boardState[newSide].push(blockData);
+            }
+
+            snapToUI(blockData, newSide);
+
+            if (currentMode.startsWith('equation')) {
+                // In equation modes, auto-combine terms of the same type on the drop plate
+                combineTerms(newSide, blockData.type);
+            }
+            
+            updateMathSentence();
+        }
+        
+        function updateBlockVisuals(blockData) {
+            let theme;
+            if (blockData.type === 'x') theme = blockData.val > 0 ? config.colors.xPos : config.colors.xNeg;
+            else theme = blockData.val >= 0 ? config.colors.constPos : config.colors.constNeg;
+            
+            // Replace old classes
+            blockData.el.className = `weight-item relative flex items-center justify-center rounded-2xl ${theme.text} font-bold math-font border-b-8 ${theme.bg} ${theme.border} z-50 shrink-0 focus:outline-none focus:ring-4 focus:ring-black animate-pop`;
+            
+            // Update Label
+            if (blockData.type === 'x') {
+                blockData.el.innerText = blockData.val === 1 ? 'x' : (blockData.val === -1 ? '-x' : `${blockData.val}x`);
+            } else {
+                blockData.el.innerText = blockData.val > 0 && currentMode !== 'compare' ? `+${blockData.val}` : blockData.val;
+            }
+        }
+
+        function removeFromState(blockData, side) {
+            boardState[side] = boardState[side].filter(b => b.id !== blockData.id);
+        }
+
+        function snapToUI(blockData, side) {
+            const el = blockData.el;
+            el.style.position = 'relative';
+            el.style.left = 'auto';
+            el.style.top = 'auto';
+            el.style.margin = '0';
+            
+            if (side === 'dock') {
+                weightDock.appendChild(el);
+            } else if (side === 'left') {
+                if (currentMode === 'compare') {
+                    if (blockData.val >= 0) document.getElementById('leftSky').appendChild(el);
+                    else document.getElementById('leftWater').appendChild(el);
+                } else {
+                    leftInnerLayout.appendChild(el);
+                }
+            } else if (side === 'right') {
+                if (currentMode === 'compare') {
+                    if (blockData.val >= 0) document.getElementById('rightSky').appendChild(el);
+                    else document.getElementById('rightWater').appendChild(el);
+                } else {
+                    rightInnerLayout.appendChild(el);
+                }
+            }
+        }
+
+        // Combines blocks of the same type on a given side into a single block
+        function combineTerms(side, typeFilter = null) {
+            const typesToCombine = typeFilter ? [typeFilter] : ['const', 'x'];
+            
+            typesToCombine.forEach(type => {
+                const blocks = boardState[side].filter(b => b.type === type && !b.isFraction);
+                if (blocks.length > 1) {
+                    // Sum values
+                    const totalVal = blocks.reduce((sum, b) => sum + b.val, 0);
+                    
+                    // Remove old DOM elements and clear from state
+                    blocks.forEach(b => {
+                        if(b.el.parentNode) b.el.parentNode.removeChild(b.el);
+                        removeFromState(b, side);
+                    });
+
+                    // Don't recreate a zero constant block (unless it's the only thing left, handled in format string)
+                    if (totalVal !== 0 || type === 'x') {
+                        let theme;
+                        if (type === 'x') theme = totalVal > 0 ? config.colors.xPos : (totalVal < 0 ? config.colors.xNeg : config.colors.constPos);
+                        else theme = totalVal >= 0 ? config.colors.constPos : config.colors.constNeg;
+                        
+                        // If it summed to 0x, maybe we shouldn't create it, but let's keep it to show 0x temporarily.
+                        // Actually, let's omit 0x to clean up.
+                        if (totalVal !== 0) {
+                            createBlockDOM(totalVal, type, theme, side);
+                        }
+                    }
+                }
+            });
+            checkSolveTools();
+        }
+
+        /* --- STREAMING_CHUNK: Solving Features (Flip, Divide) --- */
+
+        function startSolving() {
+            switchMode('equation_solve');
+        }
+
+        function handleFlipSigns() {
+            // Flip everything by -1
+            ['left', 'right'].forEach(side => {
+                boardState[side].forEach(b => {
+                    b.val = b.val * -1;
+                    updateBlockVisuals(b);
+                });
+            });
+
+            // Flip symbol handling <= and >=
+            if (currentSymbol === '<') currentSymbol = '>';
+            else if (currentSymbol === '>') currentSymbol = '<';
+            else if (currentSymbol === '<=') currentSymbol = '>=';
+            else if (currentSymbol === '>=') currentSymbol = '<=';
+            
+            logHistory("Multiply both sides by -1 (flipped inequality sign).", true);
+            updateMathSentence();
+        }
+
+        function checkSolveTools() {
+            if (currentMode !== 'equation_solve') return;
+            
+            // Restore flip signs visibility if it was hidden during an animation
+            btnFlipSigns.classList.remove('hidden');
+            
+            // Show Divide if one side has ONLY x, and other has ONLY const (or is empty for 0)
+            const leftHasX = boardState.left.length === 1 && boardState.left[0].type === 'x';
+            const leftHasConst = boardState.left.length === 1 && boardState.left[0].type === 'const';
+            const leftIsEmpty = boardState.left.length === 0;
+
+            const rightHasX = boardState.right.length === 1 && boardState.right[0].type === 'x';
+            const rightHasConst = boardState.right.length === 1 && boardState.right[0].type === 'const';
+            const rightIsEmpty = boardState.right.length === 0;
+            
+            const readyToDivide = 
+                (leftHasX && (rightHasConst || rightIsEmpty)) ||
+                (rightHasX && (leftHasConst || leftIsEmpty));
+
+            if (readyToDivide) {
+                // Check if coefficient > 1 or < -1
+                const xSide = leftHasX ? 'left' : 'right';
+                const xBlock = boardState[xSide][0];
+                if (Math.abs(xBlock.val) > 1) {
+                    btnDivide.classList.remove('hidden');
+                    return;
+                }
+            }
+            btnDivide.classList.add('hidden');
+        }
+
+        function handleDivide() {
+            // Find which side is X and which is Const
+            const isLeftX = boardState.left.length === 1 && boardState.left[0].type === 'x';
+            const xSide = isLeftX ? 'left' : 'right';
+            const constSide = isLeftX ? 'right' : 'left';
+            
+            const xBlock = boardState[xSide][0];
+            const constBlock = boardState[constSide].length > 0 ? boardState[constSide][0] : null;
+            
+            const n = xBlock.val; // coefficient
+            const c = constBlock ? constBlock.val : 0; // constant (handles empty side as 0)
+            
+            if (n === 0) return; // Prevent divide by zero error
+            if (n < 0) {
+                alert("Please multiply by -1 first to make X positive.");
+                return;
+            }
+
+            // Remove existing blocks
+            xBlock.el.remove();
+            removeFromState(xBlock, xSide);
+            
+            if (constBlock) {
+                constBlock.el.remove();
+                removeFromState(constBlock, constSide);
+            }
+
+            // Change Layout to Flex Column for Row mapping
+            document.getElementById(`${xSide}InnerLayout`).className = "flex flex-col gap-2 w-full h-full content-center items-center justify-center";
+            document.getElementById(`${constSide}InnerLayout`).className = "flex flex-col gap-2 w-full h-full content-center items-center justify-center";
+
+            // Determine if exact division or fraction
+            const isExact = c % n === 0;
+            const singleCVal = isExact ? (c / n) : null;
+            const fractionStr = isExact ? null : `${c}/${n}`;
+            
+            // Create rows
+            let rowsToFade = [];
+            
+            for (let i = 0; i < n; i++) {
+                // Create single X
+                const newX = createBlockDOM(1, 'x', config.colors.xPos, xSide);
+                
+                // Create partial C
+                const theme = c >= 0 ? config.colors.constPos : config.colors.constNeg;
+                const newC = createBlockDOM(singleCVal !== null ? singleCVal : c, 'const', theme, constSide, fractionStr);
+
+                if (i > 0) {
+                    rowsToFade.push(newX.el, newC.el);
+                }
+            }
+            
+            logHistory(`Divide both sides by ${n}.`);
+            btnDivide.classList.add('hidden');
+            btnFlipSigns.classList.add('hidden');
+
+            // Trigger animation to fade out extra rows after a moment
+            setTimeout(() => {
+                rowsToFade.forEach(el => el.classList.add('fade-out-row'));
+                
+                // Cleanup state after fade
+                setTimeout(() => {
+                    rowsToFade.forEach(el => {
+                        el.remove();
+                        // find and remove from state based on ID
+                        const removeId = el.id;
+                        boardState.left = boardState.left.filter(b => b.id !== removeId);
+                        boardState.right = boardState.right.filter(b => b.id !== removeId);
+                    });
+                    
+                    // Reset Layouts
+                    document.getElementById('leftInnerLayout').className = "flex flex-wrap gap-2 w-full h-full content-start justify-center";
+                    document.getElementById('rightInnerLayout').className = "flex flex-wrap gap-2 w-full h-full content-start justify-center";
+                    
+                    updateMathSentence();
+                    logHistory("Solved!", true);
+                }, 1000);
+
+            }, 1500);
+            
+            // Update math sentence text manually right now to avoid triggering checkSolveTools prematurely
+            const visualSymbol = getSymbolVisual(currentSymbol);
+            const lStr = buildMathString(boardState.left);
+            const rStr = buildMathString(boardState.right);
+            mathSentence.innerHTML = `<span class="text-blue-700">${lStr}</span> <span class="mx-4 text-indigo-500 font-bold">${visualSymbol}</span> <span class="text-orange-700">${rStr}</span>`;
+        }
+
+        /* --- STREAMING_CHUNK: Logic Strings and Sign Animation --- */
+
+        function getSymbolVisual(sym) {
+            if (sym === '<=') return '≤';
+            if (sym === '>=') return '≥';
+            return sym;
+        }
+
+        function handleSymbolClick() {
+            if (currentMode !== 'equation_setup') return;
+            const symbols = ['=', '<', '>', '<=', '>='];
+            const idx = symbols.indexOf(currentSymbol);
+            currentSymbol = symbols[(idx + 1) % symbols.length];
+            updateMechanicalSign();
+            updateMathSentence();
+        }
+
+        function updateMechanicalSign() {
+            const pivotAngle = 25; 
+            
+            // Update accessibility label
+            let symbolText = "equals";
+            if (currentSymbol === '<') symbolText = "less than";
+            if (currentSymbol === '>') symbolText = "greater than";
+            if (currentSymbol === '<=') symbolText = "less than or equal to";
+            if (currentSymbol === '>=') symbolText = "greater than or equal to";
+            mechanicalSignBtn.setAttribute('aria-label', `Current symbol is ${symbolText}`);
+
+            if (currentSymbol === "=") {
+                topBar.style.transform = `translateY(0px) rotate(0deg)`;
+                bottomBar.style.transform = `translateY(0px) rotate(0deg)`;
+                topBar.style.backgroundColor = '#22c55e'; // green
+                bottomBar.style.backgroundColor = '#22c55e';
+                extraEqBar.style.opacity = '0';
+            } else {
+                topBar.style.backgroundColor = '#6366f1'; // indigo
+                bottomBar.style.backgroundColor = '#6366f1';
+                extraEqBar.style.backgroundColor = '#6366f1';
+                
+                if (currentSymbol === ">" || currentSymbol === ">=") {
+                    topBar.style.transform = `translateY(-4px) rotate(${pivotAngle}deg)`;
+                    bottomBar.style.transform = `translateY(-4px) rotate(-${pivotAngle}deg)`;
+                    extraEqBar.style.opacity = currentSymbol === ">=" ? '1' : '0';
+                } else if (currentSymbol === "<" || currentSymbol === "<=") {
+                    topBar.style.transform = `translateY(-4px) rotate(-${pivotAngle}deg)`;
+                    bottomBar.style.transform = `translateY(-4px) rotate(${pivotAngle}deg)`;
+                    extraEqBar.style.opacity = currentSymbol === "<=" ? '1' : '0';
+                }
+            }
+        }
+
+        function buildMathString(sideBlocks) {
+            if (sideBlocks.length === 0) return "0";
+            
+            // Sort: X first, then constants
+            const xs = sideBlocks.filter(b => b.type === 'x');
+            const cs = sideBlocks.filter(b => b.type === 'const');
+            
+            let parts = [];
+            
+            xs.forEach((x, i) => {
+                let s = "";
+                if (i > 0 && x.val > 0) s += "+ ";
+                s += x.val === 1 ? 'x' : (x.val === -1 ? '-x' : `${x.val}x`);
+                parts.push(s);
+            });
+            
+            cs.forEach((c, i) => {
+                let s = "";
+                if (c.isFraction) {
+                    if (parts.length > 0 && c.val > 0) s += "+ ";
+                    s += c.isFraction;
+                } else {
+                    if (parts.length > 0) {
+                        s += c.val < 0 ? `- ${Math.abs(c.val)}` : `+ ${c.val}`;
+                    } else {
+                        s += c.val; // First item
+                    }
+                }
+                parts.push(s);
+            });
+            
+            return parts.join(" ");
+        }
+
+        function updateMathSentence() {
+            const visualSymbol = getSymbolVisual(currentSymbol);
+
+            if (currentMode === 'compare') {
+                const lVal = boardState.left.reduce((sum, b) => sum + b.val, 0);
+                const rVal = boardState.right.reduce((sum, b) => sum + b.val, 0);
+                
+                if (boardState.left.length === 0 && boardState.right.length === 0) {
+                    mathSentence.innerHTML = "";
+                    currentSymbol = "=";
+                } else {
+                    if (lVal > rVal) currentSymbol = ">";
+                    else if (lVal < rVal) currentSymbol = "<";
+                    else currentSymbol = "=";
+                    
+                    mathSentence.innerHTML = `<span class="text-blue-500">${lVal}</span> <span class="mx-4 text-gray-500">${getSymbolVisual(currentSymbol)}</span> <span class="text-orange-500">${rVal}</span>`;
+                }
+            } else {
+                // Equation Mode
+                const lStr = buildMathString(boardState.left);
+                const rStr = buildMathString(boardState.right);
+                mathSentence.innerHTML = `<span class="text-blue-700">${lStr}</span> <span class="mx-4 text-indigo-500 font-bold">${visualSymbol}</span> <span class="text-orange-700">${rStr}</span>`;
+            }
+            
+            // Always update the mechanical sign to match currentSymbol!
+            updateMechanicalSign();
+            checkSolveTools();
+        }
+
+        function logHistory(msg, isBold = false) {
+            if (currentMode !== 'equation_solve') return;
+            const lStr = buildMathString(boardState.left);
+            const rStr = buildMathString(boardState.right);
+            const visualSymbol = getSymbolVisual(currentSymbol);
+            const eqStr = `${lStr} ${visualSymbol} ${rStr}`;
+            
+            const item = document.createElement('div');
+            item.className = "math-history-item bg-white p-3 rounded shadow-sm border-l-4";
+            
+            item.innerHTML = `
+                <div class="text-xs text-gray-500 uppercase tracking-wider mb-1">${msg}</div>
+                <div class="${isBold ? 'font-bold text-indigo-700' : 'text-gray-800'} font-mono text-base">${eqStr}</div>
+            `;
+            
+            historyContent.appendChild(item);
+            historyContent.scrollTop = historyContent.scrollHeight;
+            announce(msg + ". Equation is now " + eqStr);
+        }
+
+        /* --- STREAMING_CHUNK: Accessibility and Cleanup --- */
+
+        function setupKeyboardAccessibility(blockData) {
+            blockData.el.addEventListener('keydown', (e) => {
+                let currentSide = 'dock';
+                if (boardState.left.includes(blockData)) currentSide = 'left';
+                if (boardState.right.includes(blockData)) currentSide = 'right';
+
+                if (e.key === 'ArrowLeft' && currentSide !== 'left') {
+                    e.preventDefault();
+                    handleDrop(blockData, 'left');
+                    blockData.el.focus();
+                } else if (e.key === 'ArrowRight' && currentSide !== 'right') {
+                    e.preventDefault();
+                    handleDrop(blockData, 'right');
+                    blockData.el.focus();
+                } else if (e.key === 'ArrowDown' && currentMode === 'compare' && currentSide !== 'dock') {
+                    e.preventDefault();
+                    handleDrop(blockData, 'dock');
+                    blockData.el.focus();
+                }
+            });
+        }
+
+        function announce(message) {
+            const announcer = document.getElementById('sr-announcer');
+            if (announcer) {
+                announcer.innerText = message;
+            }
+        }
+
+        function clearBoard() {
+            // Remove DOM elements
+            ['left', 'right', 'dock'].forEach(side => {
+                boardState[side].forEach(b => b.el.remove());
+                boardState[side] = [];
+            });
+            blockCounter = 0;
+            mathSentence.innerHTML = "";
+            currentSymbol = "=";
+            updateMechanicalSign();
+            
+            // Reset Layouts just in case they were changed during an animation
+            document.getElementById('leftInnerLayout').className = "flex flex-wrap gap-2 w-full h-full content-start justify-center relative z-20";
+            document.getElementById('rightInnerLayout').className = "flex flex-wrap gap-2 w-full h-full content-start justify-center relative z-20";
+            
+            if (currentMode === 'equation_solve') {
+                historyContent.innerHTML = '';
+            }
+        }
+
+        // Init
+        switchMode('compare');
+    </script>
+</body>
+</html>
