@@ -1,0 +1,943 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Trig Graphs that Make Sense</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&family=Kalam:wght@700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f8fafc;
+        }
+        .handwritten {
+            font-family: 'Kalam', cursive;
+        }
+        /* SVG Styling */
+        svg {
+            background-color: #ffffff;
+            border-radius: 1rem;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+            width: 100%;
+            height: 100%;
+            min-height: 400px;
+            max-height: 70vh;
+        }
+        .axis-line { stroke: #94a3b8; stroke-width: 2; }
+        .grid-line { stroke: #e2e8f0; stroke-width: 1; }
+        .mid-line { stroke: #14b8a6; stroke-width: 2; stroke-dasharray: 6,6; transition: all 0.5s ease; }
+        .amp-line { stroke: #fcd34d; stroke-width: 1; stroke-dasharray: 4,4; transition: all 0.5s ease; }
+        .tick-line { stroke: #94a3b8; stroke-width: 2; transition: all 0.5s ease; }
+        .tick-text { fill: #475569; font-size: 14px; font-weight: 600; user-select: none; transition: all 0.5s ease; text-anchor: middle; }
+        .tick-text.y-axis { text-anchor: end; }
+        
+        .point { fill: #ef4444; transition: all 0.5s ease; }
+        .curve-path { stroke: #3b82f6; stroke-width: 4; fill: none; stroke-linecap: round; stroke-linejoin: round; }
+        .asymptote { stroke: #f43f5e; stroke-width: 2; stroke-dasharray: 8,8; transition: opacity 0.1s ease; }
+        
+        /* Wizard Styling */
+        .step-container { opacity: 0.4; transition: all 0.3s ease; }
+        .step-container.active { opacity: 1; border-color: #3b82f6; }
+        .step-container.completed { opacity: 0.8; }
+        
+        input[type="number"] { -moz-appearance: textfield; }
+        input[type="number"]::-webkit-outer-spin-button,
+        input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+
+        /* Focus outlines for accessibility */
+        input:focus-visible, button:focus-visible {
+            outline: 2px solid #2563eb;
+            outline-offset: 2px;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col p-4 md:p-8">
+
+    <!-- Screen Reader Announcer -->
+    <div id="sr-announcer" class="sr-only" aria-live="polite"></div>
+
+    <header class="text-center mb-8">
+        <h1 class="text-3xl md:text-5xl font-extrabold text-slate-800 mb-2 tracking-tight">Trig Graphs <span class="text-blue-600 handwritten">that make sense</span></h1>
+        <p class="text-slate-700">Follow the steps to construct your graph logically, piece by piece.</p>
+    </header>
+
+    <div class="max-w-7xl w-full mx-auto grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+        
+        <!-- LEFT COLUMN: The Wizard (Steps) -->
+        <div class="lg:col-span-4 flex flex-col gap-4 max-h-[80vh] overflow-y-auto pr-2 pb-12 rounded-xl" id="wizardSteps">
+            
+            <!-- Group Selection -->
+            <div id="step-0" class="step-container active bg-white p-5 rounded-2xl shadow border-l-4 border-indigo-500">
+                <h2 class="font-bold text-lg text-slate-800 mb-3">Which family are we graphing?</h2>
+                <div class="flex flex-col gap-2">
+                    <button onclick="selectGroup('sin_cos')" class="w-full bg-indigo-100 hover:bg-indigo-200 text-indigo-900 font-semibold py-2 px-4 rounded-xl transition primary-btn">Sine / Cosine / Cosecant / Secant</button>
+                    <button onclick="selectGroup('tan_cot')" class="w-full bg-orange-100 hover:bg-orange-200 text-orange-900 font-semibold py-2 px-4 rounded-xl transition primary-btn">Tangent / Cotangent</button>
+                </div>
+            </div>
+
+            <!-- Step 1: Period -->
+            <div id="step-1" class="step-container bg-white p-5 rounded-2xl shadow border-l-4 border-slate-300 hidden">
+                <h2 class="font-bold text-lg text-slate-800 mb-2">Step 1: Period</h2>
+                <p class="text-sm text-slate-600 mb-3">What is the period (P) of the function?</p>
+                <div class="flex items-center gap-2 mb-4">
+                    <label for="periodNum" class="sr-only">Period Numerator</label>
+                    <input type="number" id="periodNum" value="2" class="w-16 text-center font-bold p-2 border-2 border-slate-300 rounded-lg focus:border-blue-600 outline-none">
+                    <label class="flex items-center gap-1 cursor-pointer font-bold text-slate-800 bg-slate-100 p-2 rounded-lg border-2 border-slate-300 hover:bg-slate-200">
+                        <input type="checkbox" id="periodPi" checked class="w-4 h-4 text-blue-600"> &pi;
+                    </label>
+                    <span class="text-slate-500 font-bold text-xl">/</span>
+                    <label for="periodDen" class="sr-only">Period Denominator</label>
+                    <input type="number" id="periodDen" value="1" class="w-16 text-center font-bold p-2 border-2 border-slate-300 rounded-lg focus:border-blue-600 outline-none">
+                </div>
+                <button onclick="confirmStep(1)" class="w-full bg-blue-700 hover:bg-blue-800 text-white font-bold py-2 rounded-xl transition shadow primary-btn">Draw X-Axis</button>
+            </div>
+
+            <!-- Step 2: Amplitude -->
+            <div id="step-2" class="step-container bg-white p-5 rounded-2xl shadow border-l-4 border-slate-300 hidden">
+                <h2 class="font-bold text-lg text-slate-800 mb-2">Step 2: Amplitude</h2>
+                <p class="text-sm text-slate-600 mb-3">What is the amplitude (a)?</p>
+                <div class="flex items-center gap-2 mb-4">
+                    <label for="ampInput" class="sr-only">Amplitude</label>
+                    <input type="number" id="ampInput" value="1" min="0" step="0.5" class="w-24 text-center font-bold p-2 border-2 border-slate-300 rounded-lg focus:border-teal-600 outline-none">
+                </div>
+                <button onclick="confirmStep(2)" class="w-full bg-teal-700 hover:bg-teal-800 text-white font-bold py-2 rounded-xl transition shadow primary-btn">Label Y-Axis</button>
+            </div>
+
+            <!-- Step 3: Reflections -->
+            <div id="step-3" class="step-container bg-white p-5 rounded-2xl shadow border-l-4 border-slate-300 hidden">
+                <h2 class="font-bold text-lg text-slate-800 mb-2">Step 3: Reflections</h2>
+                <p class="text-sm text-slate-600 mb-3">Are there any reflections?</p>
+                <div class="flex flex-col gap-3 mb-4">
+                    <label class="flex items-center gap-2 cursor-pointer p-2 rounded-lg border-2 border-slate-200 hover:bg-slate-100">
+                        <input type="checkbox" id="reflHoriz" class="w-5 h-5 text-purple-700">
+                        <span class="font-semibold text-slate-800">Horizontal Reflection (x-axis extending left)</span>
+                    </label>
+                    <label class="flex items-center gap-2 cursor-pointer p-2 rounded-lg border-2 border-slate-200 hover:bg-slate-100">
+                        <input type="checkbox" id="reflVert" class="w-5 h-5 text-purple-700">
+                        <span class="font-semibold text-slate-800">Vertical Reflection (flips up/down)</span>
+                    </label>
+                </div>
+                <button onclick="confirmStep(3)" class="w-full bg-purple-700 hover:bg-purple-800 text-white font-bold py-2 rounded-xl transition shadow primary-btn">Apply Reflections</button>
+            </div>
+
+            <!-- Step 4: Vertical Shift -->
+            <div id="step-4" class="step-container bg-white p-5 rounded-2xl shadow border-l-4 border-slate-300 hidden">
+                <h2 class="font-bold text-lg text-slate-800 mb-2">Step 4: Vertical Shift</h2>
+                <p class="text-sm text-slate-600 mb-3">Does the midline shift up or down?</p>
+                <div class="flex items-center gap-2 mb-4">
+                    <label for="vShiftInput" class="sr-only">Vertical Shift</label>
+                    <input type="number" id="vShiftInput" value="0" step="0.5" class="w-24 text-center font-bold p-2 border-2 border-slate-300 rounded-lg focus:border-emerald-600 outline-none">
+                </div>
+                <button onclick="confirmStep(4)" class="w-full bg-emerald-700 hover:bg-emerald-800 text-white font-bold py-2 rounded-xl transition shadow primary-btn">Shift Midline</button>
+            </div>
+
+            <!-- Step 5: Phase Shift -->
+            <div id="step-5" class="step-container bg-white p-5 rounded-2xl shadow border-l-4 border-slate-300 hidden">
+                <h2 class="font-bold text-lg text-slate-800 mb-2">Step 5: Horizontal Phase Shift</h2>
+                <div class="bg-orange-100 text-orange-900 text-xs font-bold px-2 py-1 rounded mb-3 inline-block">TIP: Remember to factor before answering!</div>
+                <div class="flex items-center gap-2 mb-2">
+                    <label for="hShiftNum" class="sr-only">Horizontal Shift Numerator</label>
+                    <input type="number" id="hShiftNum" value="0" class="w-16 text-center font-bold p-2 border-2 border-slate-300 rounded-lg focus:border-orange-600 outline-none">
+                    <label class="flex items-center gap-1 cursor-pointer font-bold text-slate-800 bg-slate-100 p-2 rounded-lg border-2 border-slate-300 hover:bg-slate-200">
+                        <input type="checkbox" id="hShiftPi" class="w-4 h-4 text-orange-600"> &pi;
+                    </label>
+                    <span class="text-slate-500 font-bold text-xl">/</span>
+                    <label for="hShiftDen" class="sr-only">Horizontal Shift Denominator</label>
+                    <input type="number" id="hShiftDen" value="1" class="w-16 text-center font-bold p-2 border-2 border-slate-300 rounded-lg focus:border-orange-600 outline-none">
+                </div>
+                <fieldset class="flex gap-2 mb-4">
+                    <legend class="sr-only">Direction of Phase Shift</legend>
+                    <label class="flex-1 text-center cursor-pointer">
+                        <input type="radio" name="hShiftDir" value="right" checked class="peer sr-only">
+                        <div class="p-2 rounded-lg border-2 border-slate-300 peer-checked:border-orange-600 peer-checked:bg-orange-50 font-bold text-slate-700 transition">Right &rarr;</div>
+                    </label>
+                    <label class="flex-1 text-center cursor-pointer">
+                        <input type="radio" name="hShiftDir" value="left" class="peer sr-only">
+                        <div class="p-2 rounded-lg border-2 border-slate-300 peer-checked:border-orange-600 peer-checked:bg-orange-50 font-bold text-slate-700 transition">&larr; Left</div>
+                    </label>
+                </fieldset>
+                <button onclick="confirmStep(5)" class="w-full bg-orange-700 hover:bg-orange-800 text-white font-bold py-2 rounded-xl transition shadow primary-btn">Shift Points</button>
+            </div>
+
+            <!-- Step 6: Base Function Points -->
+            <div id="step-6" class="step-container bg-white p-5 rounded-2xl shadow border-l-4 border-slate-300 hidden">
+                <h2 class="font-bold text-lg text-slate-800 mb-2">Step 6: Base Function</h2>
+                <p class="text-sm text-slate-600 mb-3">Which family are we plotting?</p>
+                <fieldset class="flex flex-col gap-2 mb-4" id="step6-options">
+                    <!-- Injected dynamically via JS based on Group Selection -->
+                </fieldset>
+                <button onclick="confirmStep(6)" class="w-full bg-rose-700 hover:bg-rose-800 text-white font-bold py-2 rounded-xl transition shadow primary-btn">Plot 5 Key Points</button>
+            </div>
+            
+            <!-- Step 7: Connect Curve -->
+            <div id="step-7" class="step-container bg-white p-5 rounded-2xl shadow border-l-4 border-slate-300 hidden">
+                <h2 class="font-bold text-lg text-slate-800 mb-2">Step 7: Draw the Wave</h2>
+                <p class="text-sm text-slate-600 mb-4">Connect the dots in a smooth trigonometric curve.</p>
+                <button onclick="confirmStep(7)" class="w-full bg-cyan-700 hover:bg-cyan-800 text-white font-bold py-2 rounded-xl transition shadow primary-btn">Connect the Curve</button>
+            </div>
+
+            <!-- Step 8: Final Transformation -->
+            <div id="step-8" class="step-container bg-white p-5 rounded-2xl shadow border-l-4 border-slate-300 hidden">
+                <h2 class="font-bold text-lg text-slate-800 mb-2">Step 8: Final Graph</h2>
+                <p class="text-sm text-slate-600 mb-3">Is your final function the primary wave, or its reciprocal?</p>
+                <fieldset class="flex gap-2 mb-4 relative" id="finalFuncOptions">
+                    <!-- Injected dynamically via JS -->
+                </fieldset>
+                <button onclick="resetApp()" class="w-full bg-slate-300 hover:bg-slate-400 text-slate-800 font-bold py-2 rounded-xl transition mt-4 reset-btn">Start Over</button>
+            </div>
+            
+            <!-- Reset for Tan/Cot branch which skips Step 8 -->
+            <div id="step-reset-tancot" class="step-container bg-white p-5 rounded-2xl shadow border-l-4 border-slate-300 hidden">
+                <h2 class="font-bold text-lg text-slate-800 mb-2">Graphing Complete!</h2>
+                <button onclick="resetApp()" class="w-full bg-slate-300 hover:bg-slate-400 text-slate-800 font-bold py-2 rounded-xl transition mt-2 reset-btn">Start Over</button>
+            </div>
+
+        </div>
+
+        <!-- RIGHT COLUMN: The Interactive Graph -->
+        <div class="lg:col-span-8 sticky top-8">
+            <div class="relative w-full aspect-video bg-white rounded-2xl shadow-xl overflow-hidden border-4 border-slate-200">
+                <svg id="graph" viewBox="0 0 800 600" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="svgTitle svgDesc">
+                    <title id="svgTitle">Interactive Trigonometric Graph</title>
+                    <desc id="svgDesc">A coordinate plane displaying a trigonometric function.</desc>
+                    
+                    <!-- Background Grid -->
+                    <g id="gridGroup"></g>
+                    
+                    <!-- Axes -->
+                    <line id="xAxis" class="axis-line" x1="0" y1="300" x2="800" y2="300" />
+                    <line id="yAxis" class="axis-line" x1="400" y1="0" x2="400" y2="600" />
+                    
+                    <!-- Midline and Amplitude Lines -->
+                    <line id="midLine" class="mid-line hidden" x1="0" y1="300" x2="800" y2="300" />
+                    <line id="ampTopLine" class="amp-line hidden" x1="0" y1="200" x2="800" y2="200" />
+                    <line id="ampBotLine" class="amp-line hidden" x1="0" y1="400" x2="800" y2="400" />
+
+                    <!-- Asymptotes -->
+                    <g id="asymptoteGroup"></g>
+
+                    <!-- Ticks and Labels -->
+                    <g id="xTicksGroup"></g>
+                    <g id="yTicksGroup"></g>
+
+                    <!-- Curves -->
+                    <g id="pathsGroup"></g>
+
+                    <!-- Points -->
+                    <g id="pointsGroup"></g>
+                </svg>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        /* --- Math Utility Classes --- */
+        
+        // Expression Class handles mixed Pi and Integer values perfectly for shifting/adding
+        class Expr {
+            constructor(piN, piD, n, d) {
+                this.piN = piN || 0; 
+                this.piD = piD === 0 ? 1 : (piD || 1);
+                this.n = n || 0; 
+                this.d = d === 0 ? 1 : (d || 1);
+                this.simplify();
+            }
+            simplify() {
+                const gcd = (a, b) => b === 0 ? a : gcd(b, a % b);
+                
+                if (this.piD < 0) { this.piN *= -1; this.piD *= -1; }
+                let g1 = gcd(Math.abs(this.piN), this.piD);
+                this.piN /= g1; this.piD /= g1;
+
+                if (this.d < 0) { this.n *= -1; this.d *= -1; }
+                let g2 = gcd(Math.abs(this.n), this.d);
+                this.n /= g2; this.d /= g2;
+            }
+            add(other) {
+                return new Expr(
+                    this.piN * other.piD + other.piN * this.piD, this.piD * other.piD,
+                    this.n * other.d + other.n * this.d, this.d * other.d
+                );
+            }
+            mul(scalarN, scalarD = 1) {
+                return new Expr(this.piN * scalarN, this.piD * scalarD, this.n * scalarN, this.d * scalarD);
+            }
+            val() {
+                return (this.piN / this.piD) * Math.PI + (this.n / this.d);
+            }
+            toString() {
+                let parts = [];
+                if (this.piN !== 0) {
+                    let sign = this.piN < 0 ? "-" : "";
+                    let numStr = Math.abs(this.piN) === 1 ? "" : Math.abs(this.piN);
+                    parts.push(this.piD === 1 ? `${sign}${numStr}π` : `${sign}${numStr}π/${this.piD}`);
+                }
+                if (this.n !== 0) {
+                    let sign = this.n < 0 ? "-" : "";
+                    let numStr = Math.abs(this.n);
+                    if (parts.length > 0 && this.n > 0) sign = "+";
+                    else if (parts.length > 0 && this.n < 0) sign = "-";
+                    sign = sign ? sign + " " : "";
+                    parts.push(this.d === 1 ? `${sign}${numStr}` : `${sign}${numStr}/${this.d}`);
+                }
+                return parts.length > 0 ? parts.join(" ") : "0";
+            }
+        }
+
+        /* --- State Management --- */
+        
+        const state = {
+            step: 0,
+            group: 'sin_cos', 
+            period: new Expr(2, 1, 0, 1),
+            amp: 1,
+            reflH: false,
+            reflV: false,
+            vShift: 0,
+            hShift: new Expr(0, 1, 0, 1),
+            baseFunc: 'sin',
+            isReciprocal: false,
+            morphProgress: 0, // 0 to 1 for animations
+            tanCotMorph: 0, // 0 for tan, 1 for cot
+            view: { minX: -1, maxX: 7, minY: -3, maxY: 3 },
+            keyXFracs: [] 
+        };
+
+        const SVG_W = 800;
+        const SVG_H = 600;
+
+        function mapX(x) {
+            return ((x - state.view.minX) / (state.view.maxX - state.view.minX)) * SVG_W;
+        }
+        function mapY(y) {
+            return SVG_H - ((y - state.view.minY) / (state.view.maxY - state.view.minY)) * SVG_H;
+        }
+
+        /* --- Accessibility & UI Helpers --- */
+        
+        function announceToScreenReader(message) {
+            document.getElementById('sr-announcer').textContent = message;
+        }
+
+        function setStepDisabled(stepNum, disabled) {
+            const stepEl = document.getElementById(`step-${stepNum}`);
+            if (!stepEl) return;
+            const inputs = stepEl.querySelectorAll('input, button');
+            inputs.forEach(input => {
+                input.disabled = disabled;
+                if (disabled) {
+                    input.classList.add('opacity-50', 'cursor-not-allowed');
+                } else {
+                    input.classList.remove('opacity-50', 'cursor-not-allowed');
+                }
+            });
+        }
+
+        /* --- Wizard Flow Logic --- */
+
+        function selectGroup(group) {
+            state.group = group;
+            
+            if (group === 'tan_cot') {
+                document.getElementById('periodNum').value = '1';
+                document.getElementById('periodPi').checked = true;
+                
+                // Hide Steps not needed for Tan/Cot
+                document.getElementById('step-2').style.display = 'none';
+                document.getElementById('step-8').style.display = 'none';
+                document.getElementById('step-reset-tancot').classList.add('hidden');
+                
+                document.getElementById('step-6').innerHTML = `
+                    <h2 class="font-bold text-lg text-slate-800 mb-2">Step 6: Base Tangent</h2>
+                    <p class="text-sm text-slate-600 mb-3">Let's plot the key points and draw the base Tangent curve.</p>
+                    <input type="hidden" name="baseFunc" value="tan" checked>
+                    <button onclick="confirmStep(6)" class="w-full bg-rose-700 hover:bg-rose-800 text-white font-bold py-2 rounded-xl transition shadow primary-btn">Plot & Draw Tangent</button>
+                `;
+                
+                document.getElementById('step-7').innerHTML = `
+                    <h2 class="font-bold text-lg text-slate-800 mb-2">Step 7: Final Graph</h2>
+                    <p class="text-sm text-slate-600 mb-3">Is your final function Tangent, or Cotangent?</p>
+                    <fieldset class="flex gap-2 mb-4 relative">
+                        <label class="flex-1 text-center cursor-pointer relative z-10">
+                            <input type="radio" name="finalTanCot" value="tan" checked onchange="changeBaseFunc('tan')" class="peer sr-only">
+                            <div class="p-2 rounded border-2 border-slate-300 peer-checked:border-cyan-600 peer-checked:bg-cyan-50 font-bold text-slate-700 transition">Tangent (tan)</div>
+                        </label>
+                        <label class="flex-1 text-center cursor-pointer relative z-10">
+                            <input type="radio" name="finalTanCot" value="cot" onchange="changeBaseFunc('cot')" class="peer sr-only">
+                            <div class="p-2 rounded border-2 border-slate-300 peer-checked:border-cyan-600 peer-checked:bg-cyan-50 font-bold text-slate-700 transition">Cotangent (cot)</div>
+                        </label>
+                    </fieldset>
+                    <button onclick="resetApp()" class="w-full bg-slate-300 hover:bg-slate-400 text-slate-800 font-bold py-2 rounded-xl transition mt-4 reset-btn">Start Over</button>
+                `;
+            } else {
+                document.getElementById('periodNum').value = '2';
+                document.getElementById('periodPi').checked = true;
+                
+                document.getElementById('step-2').style.display = 'block';
+                document.getElementById('step-8').style.display = 'block';
+                document.getElementById('step-reset-tancot').classList.add('hidden');
+                
+                document.getElementById('step-6').innerHTML = `
+                    <h2 class="font-bold text-lg text-slate-800 mb-2">Step 6: Base Function</h2>
+                    <p class="text-sm text-slate-600 mb-3">Which family are we plotting?</p>
+                    <fieldset class="flex flex-col gap-2 mb-4" id="step6-options">
+                        <label class="cursor-pointer">
+                            <input type="radio" name="baseFunc" value="sin" checked class="peer sr-only">
+                            <div class="p-3 rounded-lg border-2 border-slate-300 peer-checked:border-rose-600 peer-checked:bg-rose-50 transition">
+                                <div class="font-bold text-slate-800">Sine or Cosecant</div>
+                                <div class="text-xs text-slate-600 mt-1">Pattern: Mid &rarr; High &rarr; Mid &rarr; Low &rarr; Mid</div>
+                            </div>
+                        </label>
+                        <label class="cursor-pointer">
+                            <input type="radio" name="baseFunc" value="cos" class="peer sr-only">
+                            <div class="p-3 rounded-lg border-2 border-slate-300 peer-checked:border-rose-600 peer-checked:bg-rose-50 transition">
+                                <div class="font-bold text-slate-800">Cosine or Secant</div>
+                                <div class="text-xs text-slate-600 mt-1">Pattern: High &rarr; Mid &rarr; Low &rarr; Mid &rarr; High</div>
+                            </div>
+                        </label>
+                    </fieldset>
+                    <button onclick="confirmStep(6)" class="w-full bg-rose-700 hover:bg-rose-800 text-white font-bold py-2 rounded-xl transition shadow primary-btn">Plot 5 Key Points</button>
+                `;
+
+                document.getElementById('step-7').innerHTML = `
+                    <h2 class="font-bold text-lg text-slate-800 mb-2">Step 7: Draw the Wave</h2>
+                    <p class="text-sm text-slate-600 mb-4">Connect the dots in a smooth trigonometric curve.</p>
+                    <button onclick="confirmStep(7)" class="w-full bg-cyan-700 hover:bg-cyan-800 text-white font-bold py-2 rounded-xl transition shadow primary-btn">Connect the Curve</button>
+                `;
+            }
+            
+            // Clean UI reset without breaking group choice
+            document.getElementById('step-0').classList.remove('active');
+            document.getElementById('step-0').classList.add('completed');
+            setStepDisabled(0, true);
+            
+            document.getElementById('step-1').classList.remove('hidden');
+            setTimeout(() => {
+                document.getElementById('step-1').classList.add('active');
+                setStepDisabled(1, false);
+                announceToScreenReader(`Selected ${group === 'tan_cot' ? 'Tangent and Cotangent' : 'Sine and Cosine'}. Proceeding to Step 1.`);
+            }, 10);
+            
+            updateGraph();
+        }
+
+        function confirmStep(stepNum) {
+            let nextStepNum = stepNum + 1;
+            
+            // Process Step Inputs
+            if (stepNum === 1) {
+                let n = parseInt(document.getElementById('periodNum').value) || 0;
+                let d = parseInt(document.getElementById('periodDen').value) || 1;
+                let pi = document.getElementById('periodPi').checked;
+                state.period = pi ? new Expr(n, d, 0, 1) : new Expr(0, 1, n, d);
+                
+                if (state.group === 'tan_cot') {
+                    state.amp = 1; // Default
+                    nextStepNum = 3; // Skip Step 2
+                    announceToScreenReader("Period saved. Amplitude skipped for Tangent. Proceed to Step 3: Reflections.");
+                } else {
+                    announceToScreenReader("Period saved. Proceed to Step 2: Amplitude.");
+                }
+            }
+            else if (stepNum === 2) {
+                state.amp = parseFloat(document.getElementById('ampInput').value) || 1;
+                announceToScreenReader("Amplitude saved. Proceed to Step 3: Reflections.");
+            }
+            else if (stepNum === 3) {
+                state.reflH = document.getElementById('reflHoriz').checked;
+                state.reflV = document.getElementById('reflVert').checked;
+                announceToScreenReader("Reflections saved. Proceed to Step 4: Vertical Shift.");
+            }
+            else if (stepNum === 4) {
+                state.vShift = parseFloat(document.getElementById('vShiftInput').value) || 0;
+                announceToScreenReader("Vertical Shift saved. Proceed to Step 5: Phase Shift.");
+            }
+            else if (stepNum === 5) {
+                let n = parseInt(document.getElementById('hShiftNum').value) || 0;
+                let d = parseInt(document.getElementById('hShiftDen').value) || 1;
+                let pi = document.getElementById('hShiftPi').checked;
+                let dir = document.querySelector('input[name="hShiftDir"]:checked').value;
+                if (dir === 'left') n = -n;
+                state.hShift = pi ? new Expr(n, d, 0, 1) : new Expr(0, 1, n, d);
+                announceToScreenReader("Phase Shift saved. Proceed to Step 6: Base Function.");
+            }
+            else if (stepNum === 6) {
+                let selectedFunc = document.querySelector('input[name="baseFunc"]:checked');
+                state.baseFunc = selectedFunc ? selectedFunc.value : (state.group === 'tan_cot' ? 'tan' : 'sin');
+                
+                if (state.group === 'sin_cos') {
+                    const finalContainer = document.getElementById('finalFuncOptions');
+                    finalContainer.innerHTML = state.baseFunc === 'sin' ? `
+                        <label class="flex-1 text-center cursor-pointer relative z-10">
+                            <input type="radio" name="finalFunc" value="base" checked onchange="toggleReciprocal(false)" class="peer sr-only">
+                            <div class="p-2 rounded border-2 border-slate-300 peer-checked:border-fuchsia-600 peer-checked:bg-fuchsia-50 font-bold transition">Sine (sin)</div>
+                        </label>
+                        <label class="flex-1 text-center cursor-pointer relative z-10">
+                            <input type="radio" name="finalFunc" value="recip" onchange="toggleReciprocal(true)" class="peer sr-only">
+                            <div class="p-2 rounded border-2 border-slate-300 peer-checked:border-fuchsia-600 peer-checked:bg-fuchsia-50 font-bold transition">Cosecant (csc)</div>
+                        </label>
+                    ` : `
+                        <label class="flex-1 text-center cursor-pointer relative z-10">
+                            <input type="radio" name="finalFunc" value="base" checked onchange="toggleReciprocal(false)" class="peer sr-only">
+                            <div class="p-2 rounded border-2 border-slate-300 peer-checked:border-fuchsia-600 peer-checked:bg-fuchsia-50 font-bold transition">Cosine (cos)</div>
+                        </label>
+                        <label class="flex-1 text-center cursor-pointer relative z-10">
+                            <input type="radio" name="finalFunc" value="recip" onchange="toggleReciprocal(true)" class="peer sr-only">
+                            <div class="p-2 rounded border-2 border-slate-300 peer-checked:border-fuchsia-600 peer-checked:bg-fuchsia-50 font-bold transition">Secant (sec)</div>
+                        </label>
+                    `;
+                    announceToScreenReader("Base Function chosen. Proceed to Step 7.");
+                } else {
+                    announceToScreenReader("Tangent points plotted and curve drawn. Proceed to Step 7 to finalize.");
+                }
+            }
+            else if (stepNum === 7) {
+                if (state.group === 'tan_cot') {
+                    nextStepNum = 9; // End of tan/cot flow
+                } else {
+                    announceToScreenReader("Curve drawn. Proceed to Step 8: Final Transformation.");
+                }
+            }
+
+            // Update UI
+            state.step = nextStepNum - 1;
+            const currentEl = document.getElementById(`step-${stepNum}`);
+            currentEl.classList.remove('active');
+            currentEl.classList.add('completed');
+            setStepDisabled(stepNum, true);
+            
+            const btn = currentEl.querySelector('.primary-btn');
+            if(btn) btn.classList.add('hidden');
+
+            if (nextStepNum > stepNum + 1 && nextStepNum <= 8) {
+                for (let i = stepNum + 1; i < nextStepNum; i++) {
+                    const skippedEl = document.getElementById(`step-${i}`);
+                    if (skippedEl) {
+                        skippedEl.classList.remove('active');
+                        skippedEl.classList.add('completed');
+                    }
+                }
+            }
+
+            const nextEl = document.getElementById(`step-${nextStepNum}`);
+            if (nextEl) {
+                nextEl.classList.remove('hidden');
+                setTimeout(() => {
+                    nextEl.classList.add('active');
+                    setStepDisabled(nextStepNum, false);
+                    nextEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                }, 10);
+            }
+
+            updateGraph();
+        }
+
+        function resetApp() {
+            state.step = 0;
+            state.baseFunc = 'sin';
+            state.isReciprocal = false;
+            state.morphProgress = 0;
+            state.tanCotMorph = 0;
+            state.keyXFracs = [];
+            state.view = { minX: -1, maxX: 7, minY: -3, maxY: 3 };
+            
+            document.getElementById('step-0').classList.remove('completed');
+            document.getElementById('step-0').classList.add('active');
+            setStepDisabled(0, false);
+            
+            // Hide everything else and reset buttons
+            for(let i=1; i<=8; i++) {
+                let el = document.getElementById(`step-${i}`);
+                if(el) { 
+                    el.classList.add('hidden'); 
+                    el.classList.remove('active', 'completed'); 
+                    const btn = el.querySelector('.primary-btn');
+                    if(btn) btn.classList.remove('hidden');
+                    setStepDisabled(i, true);
+                }
+            }
+            document.getElementById('step-reset-tancot').classList.add('hidden');
+            
+            updateGraph();
+            announceToScreenReader("Application reset. Choose a graphing family to start over.");
+        }
+
+        function changeBaseFunc(func) {
+            if (state.baseFunc === func) return;
+            state.baseFunc = func;
+            
+            let targetMorph = func === 'cot' ? 1 : 0;
+            let startMorph = state.tanCotMorph || 0;
+            let startTime = null;
+
+            function animate(timestamp) {
+                if (!startTime) startTime = timestamp;
+                let progress = (timestamp - startTime) / 800; // 800ms for a smooth flip
+                if (progress >= 1) {
+                    state.tanCotMorph = targetMorph;
+                    updateGraph();
+                    announceToScreenReader(`Graph updated to ${func === 'tan' ? 'Tangent' : 'Cotangent'}.`);
+                    return;
+                }
+                
+                // Smooth ease-in-out cubic curve
+                let ease = progress < 0.5 ? 4 * progress * progress * progress : 1 - Math.pow(-2 * progress + 2, 3) / 2;
+                state.tanCotMorph = startMorph + (targetMorph - startMorph) * ease;
+                
+                updateGraph();
+                requestAnimationFrame(animate);
+            }
+            requestAnimationFrame(animate);
+        }
+
+        function toggleReciprocal(isRecip) {
+            if (state.isReciprocal === isRecip) return;
+            state.isReciprocal = isRecip;
+            
+            let start = null;
+            function animate(timestamp) {
+                if (!start) start = timestamp;
+                let progress = (timestamp - start) / 500; // 500ms morph
+                if (progress >= 1) {
+                    state.morphProgress = isRecip ? 1 : 0;
+                    updateGraph();
+                    return;
+                }
+                state.morphProgress = isRecip ? progress : 1 - progress;
+                updateGraph();
+                requestAnimationFrame(animate);
+            }
+            requestAnimationFrame(animate);
+        }
+
+        /* --- Math to Coordinates Logic --- */
+
+        function calculateKeyPoints() {
+            state.keyXFracs = [];
+            
+            if (state.group === 'sin_cos') {
+                let stepFrac = state.period.mul(1/4); // P / 4
+                for (let i = 0; i <= 4; i++) {
+                    let rawFrac = stepFrac.mul(i);
+                    if (state.reflH) rawFrac = rawFrac.mul(-1);
+                    state.keyXFracs.push(rawFrac.add(state.hShift));
+                }
+            } else {
+                // Tangent & Cotangent key points: -P, -P/2, 0, P/2, P
+                let stepFrac = state.period.mul(1/2); 
+                for (let i = -2; i <= 2; i++) {
+                    let rawFrac = stepFrac.mul(i);
+                    if (state.reflH) rawFrac = rawFrac.mul(-1);
+                    state.keyXFracs.push(rawFrac.add(state.hShift));
+                }
+            }
+            
+            state.keyXFracs.sort((a, b) => a.val() - b.val());
+        }
+
+        function getPointYValue(index) {
+            let baseY = [];
+            if (state.baseFunc === 'sin') baseY = [0, 1, 0, -1, 0];
+            else if (state.baseFunc === 'cos') baseY = [1, 0, -1, 0, 1];
+            else if (state.baseFunc === 'tan') baseY = [0, null, 0, null, 0];
+            else if (state.baseFunc === 'cot') baseY = [null, 0, null, 0, null];
+            
+            let val = baseY[index];
+            if (val === null) return null; // Asymptote
+            
+            if (state.reflH && (state.baseFunc === 'sin' || state.baseFunc === 'tan' || state.baseFunc === 'cot')) val = -val;
+            if (state.reflV) val = -val;
+
+            return state.vShift + val * state.amp;
+        }
+
+        function updateViewBox() {
+            if (state.step >= 1) {
+                calculateKeyPoints();
+                let xVals = state.keyXFracs.map(f => f.val());
+                let minX = Math.min(...xVals, 0); 
+                let maxX = Math.max(...xVals, 0);
+                
+                let xPad = (maxX - minX) * 0.1 || 1;
+                state.view.minX = minX - xPad;
+                state.view.maxX = maxX + xPad;
+            } else {
+                state.view.minX = -1; state.view.maxX = 5;
+            }
+
+            if (state.step >= 2) {
+                let yPad = state.amp * 1.5 || 2;
+                // For tanget/cotangent, default framing
+                if (state.group === 'tan_cot') yPad = 4;
+                
+                let centerY = state.vShift;
+                state.view.minY = centerY - yPad;
+                state.view.maxY = centerY + yPad;
+            } else {
+                state.view.minY = -3; state.view.maxY = 3;
+            }
+        }
+
+        /* --- SVG Rendering --- */
+
+        function updateGraph() {
+            updateViewBox();
+
+            document.getElementById('xAxis').setAttribute('y1', mapY(0));
+            document.getElementById('xAxis').setAttribute('y2', mapY(0));
+            document.getElementById('yAxis').setAttribute('x1', mapX(0));
+            document.getElementById('yAxis').setAttribute('x2', mapX(0));
+
+            document.getElementById('xTicksGroup').innerHTML = '';
+            document.getElementById('yTicksGroup').innerHTML = '';
+            document.getElementById('pointsGroup').innerHTML = '';
+            document.getElementById('pathsGroup').innerHTML = '';
+            document.getElementById('asymptoteGroup').innerHTML = '';
+
+            const midLine = document.getElementById('midLine');
+            const ampTopLine = document.getElementById('ampTopLine');
+            const ampBotLine = document.getElementById('ampBotLine');
+
+            if (state.step >= 1) {
+                state.keyXFracs.forEach(f => {
+                    let vx = f.val();
+                    let px = mapX(vx);
+                    let py = mapY(0);
+                    
+                    document.getElementById('xTicksGroup').innerHTML += `
+                        <line class="tick-line" x1="${px}" y1="${py-6}" x2="${px}" y2="${py+6}"></line>
+                        <text class="tick-text" x="${px}" y="${py+24}">${f.toString()}</text>
+                    `;
+                });
+            }
+
+            if (state.step >= 2) {
+                let yVals = [state.amp, -state.amp];
+                if (state.step >= 4) {
+                    yVals = [state.vShift + state.amp, state.vShift, state.vShift - state.amp];
+                    
+                    midLine.classList.remove('hidden');
+                    midLine.setAttribute('y1', mapY(state.vShift));
+                    midLine.setAttribute('y2', mapY(state.vShift));
+                    
+                    if(state.group === 'sin_cos') {
+                        ampTopLine.classList.remove('hidden');
+                        ampTopLine.setAttribute('y1', mapY(state.vShift + state.amp));
+                        ampTopLine.setAttribute('y2', mapY(state.vShift + state.amp));
+                        
+                        ampBotLine.classList.remove('hidden');
+                        ampBotLine.setAttribute('y1', mapY(state.vShift - state.amp));
+                        ampBotLine.setAttribute('y2', mapY(state.vShift - state.amp));
+                    }
+                } else {
+                    midLine.classList.add('hidden');
+                    ampTopLine.classList.add('hidden');
+                    ampBotLine.classList.add('hidden');
+                }
+
+                yVals.forEach(vy => {
+                    if (vy === 0 && state.step < 4) return; 
+                    let px = mapX(0);
+                    let py = mapY(vy);
+                    document.getElementById('yTicksGroup').innerHTML += `
+                        <line class="tick-line" x1="${px-6}" y1="${py}" x2="${px+6}" y2="${py}"></line>
+                        <text class="tick-text y-axis" x="${px-10}" y="${py+5}">${vy}</text>
+                    `;
+                });
+            } else {
+                midLine.classList.add('hidden');
+                ampTopLine.classList.add('hidden');
+                ampBotLine.classList.add('hidden');
+            }
+
+            if (state.step >= 6) {
+                if (state.group === 'tan_cot') {
+                    // Splitting roots seamlessly during animation
+                    let pVal = state.period.val();
+                    let hVal = state.hShift.val();
+                    let morphScale = Math.cos(Math.PI * (state.tanCotMorph || 0));
+                    
+                    let kMin = Math.floor(2 * (state.view.minX - hVal) / pVal) - 1;
+                    let kMax = Math.ceil(2 * (state.view.maxX - hVal) / pVal) + 1;
+                    
+                    for (let k = kMin; k <= kMax; k++) {
+                        let x0 = (k / 2) * pVal + hVal;
+                        let x1 = ((k + 1) / 2) * pVal + hVal;
+                        let xMid = (x0 + x1) / 2;
+                        
+                        // Find the root for this interval chunk
+                        let isX0Root = (k % 2 === 0);
+                        let rootX = isX0Root ? x0 : x1;
+                        let mappedRootX = xMid + (rootX - xMid) * morphScale;
+                        
+                        let py = mapY(state.vShift);
+                        let px = mapX(mappedRootX);
+                        
+                        // Prevent drawing points fully off-screen
+                        if (px >= -20 && px <= SVG_W + 20) {
+                            document.getElementById('pointsGroup').innerHTML += `
+                                <circle class="point" cx="${px}" cy="${py}" r="6"></circle>
+                            `;
+                        }
+                    }
+                } else {
+                    state.keyXFracs.forEach((f, i) => {
+                        let vx = f.val();
+                        let vy = getPointYValue(i);
+                        if (vy !== null) {
+                            document.getElementById('pointsGroup').innerHTML += `
+                                <circle class="point" cx="${mapX(vx)}" cy="${mapY(vy)}" r="6"></circle>
+                            `;
+                        }
+                    });
+                }
+            }
+
+            if (state.step >= 7 || (state.group === 'tan_cot' && state.step >= 6)) {
+                drawCurves();
+            }
+        }
+
+        /* --- Curve Generation --- */
+
+        function drawCurves() {
+            const pathsGroup = document.getElementById('pathsGroup');
+            const asymGroup = document.getElementById('asymptoteGroup');
+
+            if (state.group === 'tan_cot') {
+                let pVal = state.period.val();
+                let hVal = state.hShift.val();
+                
+                // cos(PI * progress) goes 1 to -1, driving a perfect visual 3D horizontal rotation
+                let morphScale = Math.cos(Math.PI * (state.tanCotMorph || 0));
+
+                let kMin = Math.floor(2 * (state.view.minX - hVal) / pVal) - 1;
+                let kMax = Math.ceil(2 * (state.view.maxX - hVal) / pVal) + 1;
+
+                for (let k = kMin; k <= kMax; k++) {
+                    // Each section sits tightly between an asymptote and a root
+                    let x0 = (k / 2) * pVal + hVal;
+                    let x1 = ((k + 1) / 2) * pVal + hVal;
+                    let xMid = (x0 + x1) / 2;
+
+                    let isX0Asym = (k % 2 !== 0);
+                    let asymX = isX0Asym ? x0 : x1;
+                    
+                    let mappedAsymX = xMid + (asymX - xMid) * morphScale;
+                    let pxAsym = mapX(mappedAsymX);
+                    
+                    if (pxAsym >= -50 && pxAsym <= SVG_W + 50) {
+                        asymGroup.innerHTML += `<line class="asymptote" x1="${pxAsym}" y1="0" x2="${pxAsym}" y2="${SVG_H}" style="opacity:1"></line>`;
+                    }
+
+                    let numSegPoints = 50;
+                    let eps = pVal * 0.005; // Gap to avoid infinity limits
+                    let startX = x0 + eps;
+                    let endX = x1 - eps;
+                    let step = (endX - startX) / numSegPoints;
+
+                    let d = "";
+                    for (let i = 0; i <= numSegPoints; i++) {
+                        let x = startX + i * step;
+
+                        let unshiftedX = x - hVal;
+                        if (state.reflH) unshiftedX = -unshiftedX;
+                        
+                        let t = (unshiftedX / pVal) * Math.PI;
+                        let baseVal = Math.tan(t);
+                        if (state.reflV) baseVal = -baseVal;
+
+                        let limit = 40;
+                        if (baseVal > limit) baseVal = limit;
+                        if (baseVal < -limit) baseVal = -limit;
+
+                        let y = state.vShift + state.amp * baseVal;
+                        let mappedX = xMid + (x - xMid) * morphScale;
+
+                        let px = mapX(mappedX);
+                        let py = mapY(y);
+
+                        if (i === 0) d += `M ${px} ${py} `;
+                        else d += `L ${px} ${py} `;
+                    }
+                    pathsGroup.innerHTML += `<path class="curve-path" d="${d}"></path>`;
+                }
+            } else {
+                // Existing sin_cos continuous generation
+                let startX = state.keyXFracs[0].val();
+                let endX = state.keyXFracs[4].val();
+                let numPoints = 200;
+                let step = (endX - startX) / numPoints;
+                
+                let asymXVals = [];
+                if (state.morphProgress > 0) {
+                    let rootIndices = state.baseFunc === 'sin' ? [0, 2, 4] : [1, 3];
+                    asymXVals = rootIndices.map(i => state.keyXFracs[i].val());
+                }
+
+                asymXVals.forEach(rx => {
+                    let px = mapX(rx);
+                    asymGroup.innerHTML += `<line class="asymptote" x1="${px}" y1="0" x2="${px}" y2="${SVG_H}" style="opacity:${state.morphProgress}"></line>`;
+                });
+
+                let segments = [];
+                let currentSeg = [];
+
+                for (let i = 0; i <= numPoints; i++) {
+                    let x = startX + (i * step);
+                    
+                    let isNearAsym = false;
+                    for (let ax of asymXVals) {
+                        if (Math.abs(x - ax) < step * 1.5) {
+                            isNearAsym = true;
+                            break;
+                        }
+                    }
+                    
+                    if (isNearAsym) {
+                        if (currentSeg.length > 0) segments.push(currentSeg);
+                        currentSeg = [];
+                        continue;
+                    }
+                    
+                    let unshiftedX = x - state.hShift.val();
+                    if (state.reflH) unshiftedX = -unshiftedX;
+
+                    let t = (unshiftedX / state.period.val()) * 2 * Math.PI;
+                    let baseTrigVal = state.baseFunc === 'sin' ? Math.sin(t) : Math.cos(t);
+                    if (state.reflV) baseTrigVal = -baseTrigVal;
+                    
+                    let yPrimary = state.vShift + (state.amp * baseTrigVal);
+                    
+                    let recipVal = 1 / baseTrigVal;
+                    let limit = 20;
+                    if (recipVal > limit) recipVal = limit;
+                    if (recipVal < -limit) recipVal = -limit;
+                    let yRecip = state.vShift + (state.amp * recipVal);
+                    
+                    let y = yPrimary + (yRecip - yPrimary) * state.morphProgress;
+                    currentSeg.push({x: mapX(x), y: mapY(y)});
+                }
+                if (currentSeg.length > 0) segments.push(currentSeg);
+
+                segments.forEach(seg => {
+                    if (seg.length === 0) return;
+                    let d = `M ${seg[0].x} ${seg[0].y} `;
+                    for (let i = 1; i < seg.length; i++) {
+                        d += `L ${seg[i].x} ${seg[i].y} `;
+                    }
+                    pathsGroup.innerHTML += `<path class="curve-path" d="${d}"></path>`;
+                });
+            }
+        }
+
+        // Initialize empty graph
+        updateGraph();
+        
+        // Disable steps on load
+        for(let i=1; i<=8; i++) setStepDisabled(i, true);
+
+    </script>
+</body>
+</html>
